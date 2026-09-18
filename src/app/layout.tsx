@@ -22,6 +22,7 @@ import "./profile-v2.css";
 import "./home-v2.css";
 import "./safety.css";
 import "./command.css";
+import "./production.css";
 
 export const metadata: Metadata = {
   title: "CONFLUX — Meet builders, build together",
