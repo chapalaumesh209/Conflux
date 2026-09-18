@@ -133,6 +133,13 @@ function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; bo
 function MarketingLanding() {
   const router = useRouter();
   const start = () => router.push("/signup");
+  useEffect(() => {
+    if (!configured) return;
+    const parameters = new URLSearchParams(window.location.search);
+    if (parameters.has("code") || parameters.has("error") || window.location.hash.includes("access_token")) {
+      router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
+    }
+  }, [router]);
   return <main className="landing-v2">
     <header className="v2-nav"><button className="v2-logo" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><span className="v2-mark"><i /><i /><i /></span>CONFLUX<span>.</span></button><nav><a href="#how-it-works">How it works</a><a href="#features">Features</a><button onClick={() => router.push("/login")}>Sign in</button></nav><button className="v2-nav-cta" onClick={start}>Start meeting <ArrowRight size={16} /></button></header>
     <section className="v2-hero"><div className="v2-hero-copy"><p className="v2-label">A BETTER WAY TO MEET BUILDERS <span /></p><h1>One good conversation can change what you build.</h1><p>You can find tools anywhere. CONFLUX helps you find the people behind the ideas, experiments, and projects that move you forward.</p><div className="v2-actions"><button className="v2-primary" onClick={start}>Start a meeting <ArrowRight size={18} /></button><button className="v2-secondary" onClick={start}>Explore builders</button></div><div className="v2-proof"><span><ShieldCheck size={16} /> Verified identity</span><span><MessageCircle size={16} /> Text-first meetings</span><span><Heart size={16} /> Mutual connections</span></div></div><MarketingMoment onStart={start} /></section>

@@ -12,20 +12,30 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     if (!isSupabaseConfigured()) { setError("Supabase configuration is required before sign-in can finish."); return; }
+    const continueWithUser = async (userId: string) => {
+      setMessage("Checking your builder profile…");
+      const supabase = getSupabaseClient();
+      const { data: profile, error: profileError } = await supabase.from("cf_profiles").select("onboarding_complete").eq("id", userId).maybeSingle();
+      if (profileError) { setError(profileError.message); return; }
+      router.replace(profile?.onboarding_complete ? "/meet" : "/onboarding");
+    };
     const complete = async () => {
       const parameters = new URLSearchParams(window.location.search);
       const providerError = parameters.get("error_description");
       const code = parameters.get("code");
       if (providerError) { setError(providerError); return; }
-      if (!code) { setError("This sign-in link is missing its authorization code. Try again from the sign-in page."); return; }
       const supabase = getSupabaseClient();
+      const { data: existing } = await supabase.auth.getSession();
+      if (existing.session?.user) {
+        if (!existing.session.user.email) { await supabase.auth.signOut(); setError("This provider did not share a verified email address. Use email, Google, GitHub, or LinkedIn to continue."); return; }
+        await continueWithUser(existing.session.user.id);
+        return;
+      }
+      if (!code) { setError("This sign-in link is missing its authorization code. Try again from the sign-in page."); return; }
       const { data, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
       if (exchangeError || !data.user) { setError(exchangeError?.message ?? "We could not complete sign-in. Try again."); return; }
       if (!data.user.email) { await supabase.auth.signOut(); setError("This provider did not share a verified email address. Use email, Google, GitHub, or LinkedIn to continue."); return; }
-      setMessage("Checking your builder profile…");
-      const { data: profile, error: profileError } = await supabase.from("cf_profiles").select("onboarding_complete").eq("id", data.user.id).maybeSingle();
-      if (profileError) { setError(profileError.message); return; }
-      router.replace(profile?.onboarding_complete ? "/meet" : "/onboarding");
+      await continueWithUser(data.user.id);
     };
     void complete();
   }, [router]);

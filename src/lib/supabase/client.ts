@@ -29,9 +29,10 @@ export function getSupabaseClient(): ConfluxSupabaseClient {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
-      // OAuth uses the explicit /auth/callback route so the PKCE code exchange
-      // has one clear owner and failures can be shown to the user.
-      detectSessionInUrl: false,
+      // The explicit callback owns PKCE exchange. Detection remains enabled as
+      // a safe recovery path if Supabase falls back to the configured Site URL
+      // and returns a legacy token fragment there.
+      detectSessionInUrl: true,
     },
   });
 
