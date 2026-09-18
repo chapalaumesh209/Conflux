@@ -55,3 +55,4 @@ The current service migrations establish the audit, identity, consent, profile, 
 V1 deliberately excludes groups, events, organisation features, marketplaces, content feeds, team matching, and native mobile clients. See [ADR 0003](docs/adr/0003-v1-scope-boundary.md) for the evidence gate that must be met before those modes are considered.
 
 The service currently provides the Phase 0 health, configuration, CORS, request-trace, PostgreSQL migration, and Redis runtime baseline. Authentication, OAuth, payments, and realtime adapters are intentionally not simulated in the browser; they are introduced as server-backed phases with their own migrations and tests.
+# Conflux
