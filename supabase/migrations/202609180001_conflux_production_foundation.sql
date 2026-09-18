@@ -336,6 +336,36 @@ alter table public.cf_project_messages enable row level security;
 alter table public.cf_entitlements enable row level security;
 alter table public.cf_notifications enable row level security;
 
+-- The SQL editor may have applied an earlier portion of this additive file.
+-- Replace only the policies this migration owns so a retry can finish safely.
+drop policy if exists "profiles read permitted discovery fields" on public.cf_profiles;
+drop policy if exists "profiles insert self" on public.cf_profiles;
+drop policy if exists "profiles update self" on public.cf_profiles;
+drop policy if exists "contacts owner or mutual connection" on public.cf_profile_contacts;
+drop policy if exists "contacts owner write" on public.cf_profile_contacts;
+drop policy if exists "blocks owner" on public.cf_blocks;
+drop policy if exists "reports reporter" on public.cf_reports;
+drop policy if exists "meet participants" on public.cf_meet_sessions;
+drop policy if exists "meet messages participants read" on public.cf_meet_messages;
+drop policy if exists "meet messages participants send" on public.cf_meet_messages;
+drop policy if exists "connections participants" on public.cf_connections;
+drop policy if exists "messages connection participants read" on public.cf_messages;
+drop policy if exists "messages connection participants send" on public.cf_messages;
+drop policy if exists "projects public owner member read" on public.cf_projects;
+drop policy if exists "projects owner create" on public.cf_projects;
+drop policy if exists "projects owner update" on public.cf_projects;
+drop policy if exists "project members member read" on public.cf_project_members;
+drop policy if exists "project tasks members read" on public.cf_project_tasks;
+drop policy if exists "project tasks members write" on public.cf_project_tasks;
+drop policy if exists "milestones members read" on public.cf_project_milestones;
+drop policy if exists "milestones members write" on public.cf_project_milestones;
+drop policy if exists "project messages members read" on public.cf_project_messages;
+drop policy if exists "project messages members send" on public.cf_project_messages;
+drop policy if exists "join requests requester or owner read" on public.cf_project_join_requests;
+drop policy if exists "entitlements self read" on public.cf_entitlements;
+drop policy if exists "notifications self" on public.cf_notifications;
+drop policy if exists "notifications self read update" on public.cf_notifications;
+
 create policy "profiles read permitted discovery fields" on public.cf_profiles for select to authenticated using (
   is_discoverable
   or id = auth.uid()
