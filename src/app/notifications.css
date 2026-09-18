@@ -1,0 +1,61 @@
+.notification-panel {
+  position: fixed;
+  z-index: 12;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: min(400px, calc(100vw - 24px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dce3df;
+  border-radius: 22px;
+  background: #fffefa;
+  box-shadow: -9px 17px 55px rgba(24, 38, 48, .18);
+  animation: notification-in .28s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.notification-panel header {
+  display: flex;
+  justify-content: space-between;
+  padding: 31px 29px 23px;
+  background: #15202b;
+}
+
+.notification-panel .sheet-label { color: #c7fa88; }
+.notification-panel h2 { margin: 10px 0 0; color: #f7fafb; font: 600 35px/.96 "Bricolage Grotesque", sans-serif; letter-spacing: -.06em; }
+.notification-panel header button { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid rgba(255,255,255,.25); border-radius: 50%; background: transparent; color: white; cursor: pointer; }
+
+.notification-count { display: flex; align-items: center; justify-content: space-between; padding: 17px 28px; border-bottom: 1px solid #e4e8e4; }
+.notification-count span { color: #7a8782; font: 500 10px/1 "DM Mono", monospace; letter-spacing: .08em; }
+.notification-count button { border: 0; background: transparent; padding: 0; color: #455cab; font: 600 12px/1 "Bricolage Grotesque", sans-serif; cursor: pointer; }
+
+.notification-list { display: grid; }
+.notification-list > button { position: relative; display: grid; grid-template-columns: 9px minmax(0, 1fr) 16px; align-items: center; gap: 11px; width: 100%; border: 0; border-bottom: 1px solid #e7ebe6; padding: 20px 25px; background: transparent; color: #293740; text-align: left; cursor: pointer; transition: background .2s ease, transform .2s ease; }
+.notification-list > button:hover { background: #f5faec; transform: translateX(4px); }
+.notification-list > button.new { background: #f4f7ff; }
+.notification-list > button.new:hover { background: #edf4df; }
+.notification-list i { width: 8px; height: 8px; align-self: start; margin-top: 4px; border-radius: 50%; }
+.notification-list .violet-dot { background: #8b73ed; }
+.notification-list .lime-dot { background: #76b767; }
+.notification-list .blue-dot { background: #6b9ce2; }
+.notification-list span { display: grid; gap: 6px; min-width: 0; }
+.notification-list strong { font: 600 14px/1.22 "Bricolage Grotesque", sans-serif; letter-spacing: -.01em; }
+.notification-list small { color: #78848a; font: 400 12px/1.35 "Bricolage Grotesque", sans-serif; }
+.notification-list em { color: #909b95; font: 500 9px/1 "DM Mono", monospace; font-style: normal; text-transform: uppercase; }
+.notification-list svg { color: #98a39e; }
+
+.notification-panel footer { display: flex; align-items: flex-start; gap: 10px; margin-top: auto; padding: 20px 26px; background: #e8e8ff; color: #535173; }
+.notification-panel footer svg { flex: none; margin-top: 2px; }
+.notification-panel footer p { margin: 0; font: 500 12px/1.45 "Bricolage Grotesque", sans-serif; }
+.notification-panel footer strong { color: #383558; }
+
+@keyframes notification-in { from { opacity: 0; transform: translateX(24px) scale(.98); } to { opacity: 1; transform: translateX(0) scale(1); } }
+
+@media (max-width: 760px) {
+  .notification-panel { top: 8px; right: 8px; bottom: 74px; width: calc(100vw - 16px); border-radius: 18px; }
+  .notification-panel header { padding: 25px 22px 20px; }
+  .notification-panel h2 { font-size: 31px; }
+  .notification-count { padding: 15px 21px; }
+  .notification-list > button { padding: 18px 20px; }
+}

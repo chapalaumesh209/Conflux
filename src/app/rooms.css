@@ -1,0 +1,297 @@
+.room-v2 {
+  max-width: 1080px;
+}
+
+.room-v2-crumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 34px;
+  color: #6a7887;
+  font: 500 11px/1 "DM Mono", monospace;
+  letter-spacing: .08em;
+}
+
+.room-v2-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+  padding-bottom: 34px;
+}
+
+.room-v2-head h1 {
+  max-width: 620px;
+  margin: 8px 0 12px;
+  color: #15202b;
+  font: 600 clamp(42px, 5.2vw, 70px)/.94 "Bricolage Grotesque", sans-serif;
+  letter-spacing: -.065em;
+}
+
+.room-v2-head p:not(.time-stamp) {
+  max-width: 490px;
+  margin: 0;
+  color: #607080;
+  font-size: 16px;
+  line-height: 1.55;
+}
+
+.room-v2-head > div:last-child {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 16px;
+  min-width: 190px;
+}
+
+.room-v2-head > div:last-child > button,
+.room-v2-overview aside > button,
+.room-v2-notes > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 15px;
+  background: #15202b;
+  color: #f7fafb;
+  box-shadow: 0 8px 18px rgba(21, 32, 43, .15);
+  font: 600 13px/1 "Bricolage Grotesque", sans-serif;
+  cursor: pointer;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.room-v2-head > div:last-child > button:hover,
+.room-v2-overview aside > button:hover,
+.room-v2-notes > button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 25px rgba(21, 32, 43, .18);
+}
+
+.room-v2-members {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+.room-v2-members .avatar {
+  width: 30px;
+  height: 30px;
+  border: 2px solid #f8f8f5;
+}
+
+.room-v2-members .avatar + .avatar {
+  margin-left: -9px;
+}
+
+.room-v2-members span {
+  margin-left: 10px;
+  color: #6d7885;
+  font: 500 11px/1 "DM Mono", monospace;
+}
+
+.room-v2-tabs {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid #dce2e0;
+}
+
+.room-v2-tabs button {
+  position: relative;
+  border: 0;
+  padding: 0 0 13px;
+  background: transparent;
+  color: #7a8790;
+  font: 600 13px/1 "Bricolage Grotesque", sans-serif;
+  cursor: pointer;
+}
+
+.room-v2-tabs button::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: #15202b;
+  content: "";
+  transform: scaleX(0);
+  transition: transform .2s ease;
+}
+
+.room-v2-tabs button.active { color: #15202b; }
+.room-v2-tabs button.active::after { transform: scaleX(1); }
+
+.room-v2-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, .7fr);
+  gap: 22px;
+  padding-top: 24px;
+}
+
+.room-v2-overview section,
+.room-v2-overview aside,
+.room-v2-notes {
+  border: 1px solid #dfe5e1;
+  border-radius: 20px;
+  background: #fffefa;
+  box-shadow: 0 12px 34px rgba(33, 48, 58, .05);
+}
+
+.room-v2-overview section {
+  min-height: 300px;
+  padding: 29px;
+}
+
+.sheet-label {
+  display: block;
+  color: #83908b;
+  font: 500 10px/1 "DM Mono", monospace;
+  letter-spacing: .1em;
+}
+
+.room-v2-overview h2 {
+  max-width: 570px;
+  margin: 13px 0 13px;
+  color: #182630;
+  font: 600 clamp(27px, 3vw, 39px)/1.02 "Bricolage Grotesque", sans-serif;
+  letter-spacing: -.045em;
+}
+
+.room-v2-overview section > p {
+  max-width: 540px;
+  margin: 0;
+  color: #64727d;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.room-v2-links {
+  display: flex;
+  gap: 9px;
+  margin-top: 30px;
+}
+
+.room-v2-links button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #d8dfda;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #384955;
+  font: 500 12px/1 "Bricolage Grotesque", sans-serif;
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease;
+}
+
+.room-v2-links button:hover { border-color: #9fb5a3; background: #f5faec; }
+
+.room-v2-overview aside {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 27px;
+  background: #e8e8ff;
+}
+
+.room-v2-overview aside strong {
+  margin-top: 15px;
+  color: #292644;
+  font: 600 22px/1.08 "Bricolage Grotesque", sans-serif;
+  letter-spacing: -.035em;
+}
+
+.room-v2-overview aside p {
+  margin: 8px 0 23px;
+  color: #696686;
+  font: 500 11px/1.4 "DM Mono", monospace;
+}
+
+.room-v2-overview aside > button {
+  background: #373363;
+  box-shadow: none;
+}
+
+.room-v2-goals {
+  display: grid;
+  gap: 10px;
+  padding-top: 24px;
+}
+
+.room-v2-goals button {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 1px solid #dfe5e1;
+  border-radius: 15px;
+  padding: 19px 20px;
+  background: #fffefa;
+  color: #26343d;
+  text-align: left;
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.room-v2-goals button:hover { transform: translateX(3px); border-color: #adc6aa; }
+.room-v2-goals button.done { background: #f3fbdf; color: #50614d; }
+
+.room-v2-goals button > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1.5px solid #aab7b2;
+  border-radius: 50%;
+}
+
+.room-v2-goals button.done > span { border-color: #6b9c61; background: #c7fa88; color: #31542a; }
+.room-v2-goals strong { font: 600 15px/1.2 "Bricolage Grotesque", sans-serif; }
+.room-v2-goals small { color: #86918c; font: 500 10px/1 "DM Mono", monospace; text-transform: uppercase; }
+
+.room-v2-notes {
+  max-width: 720px;
+  margin-top: 24px;
+  padding: 29px;
+}
+
+.room-v2-notes > p {
+  max-width: 630px;
+  margin: 14px 0 21px;
+  color: #26343d;
+  font: 500 clamp(20px, 2.6vw, 30px)/1.23 "Bricolage Grotesque", sans-serif;
+  letter-spacing: -.035em;
+}
+
+.room-v2-notes > div { display: flex; align-items: center; gap: 8px; color: #7a8790; font: 500 11px/1 "DM Mono", monospace; }
+.room-v2-notes .avatar { width: 24px; height: 24px; }
+.room-v2-notes > button { margin-top: 26px; }
+
+.room-v2-activity {
+  position: relative;
+  display: grid;
+  gap: 23px;
+  margin: 30px 0 0 10px;
+  padding-left: 26px;
+  border-left: 1px solid #dce2e0;
+}
+
+.room-v2-activity > div { position: relative; }
+.room-v2-activity i { position: absolute; top: 5px; left: -31px; width: 9px; height: 9px; border: 2px solid #f8f8f5; border-radius: 50%; background: #8b73ed; }
+.room-v2-activity p { display: grid; gap: 6px; margin: 0; color: #43515c; }
+.room-v2-activity strong { font: 600 14px/1.2 "Bricolage Grotesque", sans-serif; }
+.room-v2-activity small { color: #87938f; font: 500 10px/1 "DM Mono", monospace; }
+
+@media (max-width: 720px) {
+  .room-v2-head { flex-direction: column; }
+  .room-v2-head > div:last-child { align-items: flex-start; justify-content: flex-start; }
+  .room-v2-head h1 { font-size: 47px; }
+  .room-v2-overview { grid-template-columns: 1fr; }
+  .room-v2-tabs { gap: 16px; overflow-x: auto; }
+  .room-v2-tabs button { flex: none; }
+  .room-v2-overview section, .room-v2-overview aside, .room-v2-notes { padding: 23px; }
+}

@@ -1,0 +1,39 @@
+/*
+ * CONFLUX design tokens. Screen styles consume semantic roles from here rather
+ * than assigning meaning to a colour, shadow, or radius ad hoc.
+ */
+:root {
+  --color-ink: #111318;
+  --color-ink-soft: #263640;
+  --color-canvas: #f4f1e8;
+  --color-surface: #fffdf8;
+  --color-line: #d7d2c6;
+  --color-muted: #555b66;
+  --color-live: #3157d5;
+  --color-ready: #c8ff45;
+  --color-urgent: #ff7359;
+  --color-trust: #397044;
+  --color-room: #e8e8ff;
+
+  --font-interface: "Bricolage Grotesque", sans-serif;
+  --font-measure: "DM Mono", monospace;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  --radius-control: 10px;
+  --radius-card: 14px;
+  --radius-panel: 20px;
+  --shadow-panel: 0 14px 36px rgba(17, 19, 24, .13);
+  --focus-ring: 0 0 0 3px var(--color-live);
+  --motion-fast: 160ms ease;
+  --motion-standard: 240ms cubic-bezier(.2, .8, .2, 1);
+  --z-navigation: 5;
+  --z-overlay: 20;
+}

@@ -1,0 +1,29 @@
+# JavaScript dependencies and generated application output
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+
+# Local environment configuration (examples remain tracked)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Java/Gradle generated files
+server/.gradle/
+server/build/
+server/out/
+*.class
+
+# Logs and machine-specific files
+*.log
+.DS_Store
+
+# IDE configuration
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws

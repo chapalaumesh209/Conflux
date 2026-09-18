@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "direction": "after-hours build lab",
+  "mode": "operate",
+  "surface": "web application foundation",
+  "tokens": {
+    "ink": "#111318",
+    "bone": "#F4F1E8",
+    "cobalt": "#3157D5",
+    "lime": "#C8FF45",
+    "coral": "#FF7359"
+  }
+}
