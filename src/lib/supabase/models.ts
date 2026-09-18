@@ -31,22 +31,27 @@ export type Connection = {
   low_profile_id: string;
   high_profile_id: string;
   created_at: string;
+  conversation_id?: string;
   other?: Profile;
 };
 
 export type Message = {
   id: string;
   connection_id: string;
+  conversation_id: string;
   sender_id: string;
   body: string;
+  client_message_id: string | null;
   created_at: string;
 };
 
 export type Project = {
   id: string;
   owner_id: string;
+  slug: string;
   name: string;
   idea: string;
+  summary: string | null;
   problem: string | null;
   goals: string | null;
   stage: "IDEA" | "PLANNING" | "BUILDING" | "BETA" | "LIVE" | "PAUSED" | "COMPLETED";
@@ -62,7 +67,7 @@ export type ProjectTask = {
   id: string;
   project_id: string;
   title: string;
-  status: "TODO" | "IN_PROGRESS" | "DONE";
+  status: "BACKLOG" | "TODO" | "IN_PROGRESS" | "BLOCKED" | "DONE" | "CANCELLED";
   priority: "LOW" | "MEDIUM" | "HIGH";
   due_at: string | null;
   created_at: string;
