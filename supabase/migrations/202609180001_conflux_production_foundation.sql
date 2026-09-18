@@ -81,9 +81,18 @@ create table if not exists public.cf_connections (
   unique (low_profile_id, high_profile_id)
 );
 
-alter table public.cf_meet_sessions
-  add constraint cf_meet_sessions_connection_id_fkey
-  foreign key (connection_id) references public.cf_connections(id) on delete set null;
+do $$ begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conname = 'cf_meet_sessions_connection_id_fkey'
+      and conrelid = 'public.cf_meet_sessions'::regclass
+  ) then
+    alter table public.cf_meet_sessions
+      add constraint cf_meet_sessions_connection_id_fkey
+      foreign key (connection_id) references public.cf_connections(id) on delete set null;
+  end if;
+end $$;
 
 create table if not exists public.cf_meet_messages (
   id uuid primary key default gen_random_uuid(),
