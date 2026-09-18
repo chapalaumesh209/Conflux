@@ -1,8 +1,9 @@
 # CONFLUX Supabase deployment
 
-The migration in `migrations/202609180001_conflux_production_foundation.sql`
-adds the production application foundation without modifying the project’s
-unknown existing tables. It is intentionally not auto-applied.
+The migrations in `migrations/` add the production application foundation and
+the required verified-profile fields without modifying the project’s unknown
+existing tables. They are intentionally not auto-applied. Apply them in their
+timestamp order.
 
 Before applying it:
 
@@ -10,9 +11,12 @@ Before applying it:
    existing production model.
 2. Apply the migration through the Supabase CLI or SQL editor using an account
    with database migration access.
-3. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the
+3. In Supabase Auth email templates, use the `{{ .Token }}` variable in the
+   Confirm signup template so the registration flow can verify the six-digit
+   OTP. Keep email confirmation enabled.
+4. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the
    Vercel project, then redeploy.
-4. Configure Supabase Auth redirect URLs for the deployed domain.
+5. Configure Supabase Auth redirect URLs for the deployed domain.
 
 The browser uses only the anon key. Billing webhooks, OAuth token exchange,
 moderation operations, and any service-role access belong in a trusted server

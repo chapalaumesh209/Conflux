@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRight, Check, CircleAlert, Compass, LogOut, MessageCircle, Plus, RefreshCw, Send, ShieldCheck, Sparkles, UsersRound, Wrench, X, Zap } from "lucide-react";
+import { ArrowRight, Check, CircleAlert, Compass, Heart, LogOut, MessageCircle, Plus, RefreshCw, Send, ShieldCheck, Sparkles, UsersRound, Wrench, X, Zap } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabase/client";
 import type { Candidate, Connection, Message, Profile, Project, ProjectTask } from "../lib/supabase/models";
 
@@ -15,8 +16,16 @@ const formatDate = (value: string) => new Intl.DateTimeFormat(undefined, { month
 function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="cf-field"><span>{label}</span>{children}</label>; }
 
 export default function ConfluxApp() {
+  const pathname = usePathname();
+  return pathname === "/" ? <MarketingLanding /> : <ProductApp />;
+}
+
+function ProductApp() {
+  const pathname = usePathname();
+  const router = useRouter();
   const supabase = useMemo(() => configured ? getSupabaseClient() : null, []);
-  const [view, setView] = useState<View>("meet");
+  const viewForPath: Record<string, View> = { "/meet": "meet", "/connections": "connections", "/build-rooms": "builds", "/profile": "profile" };
+  const [view, setView] = useState<View>(viewForPath[pathname] ?? "meet");
   const [session, setSession] = useState<UserSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [booting, setBooting] = useState(true);
@@ -36,16 +45,24 @@ export default function ConfluxApp() {
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, [loadProfile, supabase]);
   useEffect(() => { if (!notice) return; const id = window.setTimeout(() => setNotice(""), 3600); return () => window.clearTimeout(id); }, [notice]);
+  useEffect(() => { setView(viewForPath[pathname] ?? "meet"); }, [pathname]);
   if (booting) return <main className="cf-loading"><span className="cf-pulse" />Opening CONFLUX</main>;
   if (!configured) return <ConnectionRequired />;
   if (!session) return <Auth onError={setError} />;
-  if (!profile || !profile.onboarding_complete) return <Onboarding session={session} initial={profile} onComplete={loadProfile} onError={setError} />;
+  if (!profile || !profile.onboarding_complete) return <NeedsOnboarding />;
   const client = supabase!;
   const nav: Array<[View, string, typeof Zap]> = [["meet", "Meet", Zap], ["connections", "Connections", UsersRound], ["builds", "Build rooms", Wrench], ["profile", "Profile", Compass]];
-  return <main className="cf-app"><aside className="cf-sidebar"><button className="cf-brand" onClick={() => setView("meet")} aria-label="CONFLUX home">CONFLUX<span>.</span></button><p className="cf-status"><i />Intentional introductions</p><nav aria-label="Primary navigation">{nav.map(([key, label, Icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => setView(key)}><Icon size={18} />{label}</button>)}</nav><div className="cf-account"><span className="cf-avatar">{initials(profile.full_name)}</span><span><strong>{profile.full_name}</strong><small>{profile.email_verified ? "Verified member" : "Email pending"}</small></span></div></aside><section className="cf-main"><header className="cf-topbar"><span className="cf-kicker">{view === "meet" ? "Live introductions" : view === "connections" ? "Mutual connections" : view === "builds" ? "Shared work" : "Your builder identity"}</span><button className="cf-quiet" onClick={() => void client.auth.signOut()}><LogOut size={16} />Sign out</button></header><div className="cf-content">{error && <div className="cf-alert error"><CircleAlert size={18} /><span>{error}</span><button onClick={() => setError("")} aria-label="Dismiss error"><X size={17} /></button></div>}{notice && <div className="cf-alert success"><Check size={18} /><span>{notice}</span></div>}{view === "meet" && <Meet userId={session.user.id} onNotice={setNotice} onError={setError} onConnected={() => setView("connections")} />}{view === "connections" && <Connections userId={session.user.id} onError={setError} onOpenBuild={() => setView("builds")} />}{view === "builds" && <BuildRooms userId={session.user.id} onError={setError} onNotice={setNotice} />}{view === "profile" && <ProfileEditor profile={profile} email={session.user.email ?? ""} onSaved={loadProfile} onError={setError} onNotice={setNotice} />}</div></section></main>;
+  const routes: Record<View, string> = { meet: "/meet", connections: "/connections", builds: "/build-rooms", profile: "/profile" };
+  return <main className="cf-app"><aside className="cf-sidebar"><button className="cf-brand" onClick={() => router.push("/")} aria-label="CONFLUX home">CONFLUX<span>.</span></button><p className="cf-status"><i />Intentional introductions</p><nav aria-label="Primary navigation">{nav.map(([key, label, Icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => router.push(routes[key])}><Icon size={18} />{label}</button>)}</nav><div className="cf-account"><span className="cf-avatar">{initials(profile.full_name)}</span><span><strong>{profile.full_name}</strong><small>{profile.email_verified ? "Verified member" : "Email pending"}</small></span></div></aside><section className="cf-main"><header className="cf-topbar"><span className="cf-kicker">{view === "meet" ? "Live introductions" : view === "connections" ? "Mutual connections" : view === "builds" ? "Shared work" : "Your builder identity"}</span><button className="cf-quiet" onClick={() => void client.auth.signOut()}><LogOut size={16} />Sign out</button></header><div className="cf-content">{error && <div className="cf-alert error"><CircleAlert size={18} /><span>{error}</span><button onClick={() => setError("")} aria-label="Dismiss error"><X size={17} /></button></div>}{notice && <div className="cf-alert success"><Check size={18} /><span>{notice}</span></div>}{view === "meet" && <Meet userId={session.user.id} onNotice={setNotice} onError={setError} onConnected={() => router.push("/connections")} />}{view === "connections" && <Connections userId={session.user.id} onError={setError} onOpenBuild={() => router.push("/build-rooms")} />}{view === "builds" && <BuildRooms userId={session.user.id} onError={setError} onNotice={setNotice} />}{view === "profile" && <ProfileEditor profile={profile} email={session.user.email ?? ""} onSaved={loadProfile} onError={setError} onNotice={setNotice} />}</div></section></main>;
 }
 
 function ConnectionRequired() { return <main className="cf-gate"><section><span className="cf-orb">↗</span><p className="cf-kicker">Deployment setup required</p><h1>Connect this build<br />to its real data.</h1><p>CONFLUX will not show sample people or pretend conversations. Add the public Supabase URL and anon key in Vercel, then redeploy.</p><code>NEXT_PUBLIC_SUPABASE_URL<br />NEXT_PUBLIC_SUPABASE_ANON_KEY</code><small>Keep service-role credentials only on a trusted server or Supabase Edge Function.</small></section></main>; }
+
+function NeedsOnboarding() {
+  const router = useRouter();
+  useEffect(() => { router.replace("/onboarding"); }, [router]);
+  return <main className="cf-loading"><span className="cf-pulse" />Opening your profile setup</main>;
+}
 
 function Auth({ onError }: { onError: (message: string) => void }) {
   const supabase = getSupabaseClient(); const [mode, setMode] = useState<"signin" | "signup">("signin"); const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [working, setWorking] = useState(false);
@@ -106,3 +123,27 @@ function ProfileEditor({ profile, email, onSaved, onError, onNotice }: { profile
 }
 
 function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) { return <div className="cf-empty">{icon}<h2>{title}</h2><p>{body}</p></div>; }
+
+function MarketingLanding() {
+  const router = useRouter();
+  const start = () => router.push("/register");
+  return <main className="landing-v2">
+    <header className="v2-nav"><button className="v2-logo" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><span className="v2-mark"><i /><i /><i /></span>CONFLUX<span>.</span></button><nav><a href="#how-it-works">How it works</a><a href="#features">Features</a><button onClick={() => router.push("/auth")}>Sign in</button></nav><button className="v2-nav-cta" onClick={start}>Start meeting <ArrowRight size={16} /></button></header>
+    <section className="v2-hero"><div className="v2-hero-copy"><p className="v2-label">A BETTER WAY TO MEET BUILDERS <span /></p><h1>One good conversation can change what you build.</h1><p>You can find tools anywhere. CONFLUX helps you find the people behind the ideas, experiments, and projects that move you forward.</p><div className="v2-actions"><button className="v2-primary" onClick={start}>Start a meeting <ArrowRight size={18} /></button><button className="v2-secondary" onClick={start}>Explore builders</button></div><div className="v2-proof"><span><ShieldCheck size={16} /> Verified identity</span><span><MessageCircle size={16} /> Text-first meetings</span><span><Heart size={16} /> Mutual connections</span></div></div><MarketingMoment onStart={start} /></section>
+    <section className="v2-strip"><span>MEET</span><i /><span>TALK</span><i /><span>CONNECT</span><i /><span>BUILD</span><i /><span>MEET</span><i /><span>TALK</span></section>
+    <section className="v2-why" id="how-it-works"><div><p className="v2-label">BUILT FOR REAL MOMENTUM</p><h2>Not another feed.<br /><em>A starting point.</em></h2></div><p>CONFLUX keeps discovery finite and gives every conversation a reason to begin. See who someone is, what they&apos;re building, and why you might click—before you say hello.</p><div className="v2-steps"><article><span>01</span><h3>Show your now</h3><p>Skills, current work, and the kind of people you want to meet.</p></article><article><span>02</span><h3>Meet without a clock</h3><p>Text first, with audio or video only when both people want it.</p></article><article><span>03</span><h3>Keep what matters</h3><p>Mutual connections become conversations, memory, and Build Rooms.</p></article></div></section>
+    <section className="v2-feature-stage" id="features"><div className="v2-feature-copy"><p className="v2-label">ONE CONNECTED SYSTEM</p><h2>From “interesting person” to “let&apos;s build.”</h2><p>The experience moves naturally from discovery to conversation to collaboration, without forcing relationships to stay inside the app.</p><button className="v2-inline" onClick={start}>See your network <ArrowRight size={17} /></button></div><div className="v2-feature-window"><div className="v2-window-top"><span>YOUR CONNECTIONS</span><span>PRIVATE</span></div><div className="v2-connection"><span className="cf-avatar">MR</span><div><strong>Mutual connection</strong><small>Context stays with the people who chose it.</small></div><span>Real-time</span></div><div className="v2-memory"><small>WHY CONFLUX</small><p>Good introductions need enough signal to become useful.</p><div><span><ShieldCheck size={15} /> verified identity</span><span><Sparkles size={15} /> next step ready</span></div></div><button onClick={start}><Wrench size={17} /> Open Build Room <ArrowRight size={16} /></button></div></section>
+    <section className="v2-feature-grid"><article><div className="v2-icon mint"><Compass size={22} /></div><h3>Finite discovery</h3><p>A focused dispatch of builders worth knowing, never an infinite scroll.</p><button onClick={start}>Explore people <ArrowRight size={15} /></button></article><article><div className="v2-icon lilac"><MessageCircle size={22} /></div><h3>Live Meet</h3><p>A low-pressure, text-first introduction with clear choices.</p><button onClick={start}>Enter Meet <ArrowRight size={15} /></button></article><article><div className="v2-icon peach"><Wrench size={22} /></div><h3>Build Rooms</h3><p>Turn a promising connection into clear shared work.</p><button onClick={start}>See Build Rooms <ArrowRight size={15} /></button></article></section>
+    <section className="v2-trust"><div><p className="v2-label">TRUST, WITHOUT THE THEATRE</p><h2>Know who you&apos;re meeting.</h2><p>Email, LinkedIn, and GitHub verification make a first introduction more confident. You still decide what to share and whether to connect.</p></div><div className="v2-trust-stack"><span><ShieldCheck size={18} /> Email verified <Check size={17} /></span><span><ShieldCheck size={18} /> LinkedIn connected <Check size={17} /></span><span><ShieldCheck size={18} /> GitHub linked <Check size={17} /></span></div></section>
+    <section className="v2-pro"><div><p className="v2-label">FREE TO MEET · PRO TO GO DEEPER</p><h2>Free helps you meet people.<br />Pro helps you build more with them.</h2></div><div><p>Meet, connect, chat, and create your own Build Room. Pro adds intentional discovery and deeper collaboration.</p><button className="v2-secondary light" onClick={start}>Explore Pro <ArrowRight size={17} /></button></div></section>
+    <section className="v2-final"><p>Meet someone interesting.</p><h2>See what happens.</h2><button className="v2-primary dark" onClick={start}>Start meeting <ArrowRight size={18} /></button></section>
+    <footer className="v2-footer"><button className="v2-logo" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><span className="v2-mark"><i /><i /><i /></span>CONFLUX<span>.</span></button><strong>Meet. Talk. Connect. Build.</strong><span>© CONFLUX.site</span></footer>
+  </main>;
+}
+
+function MarketingMoment({ onStart }: { onStart: () => void }) {
+  const [step, setStep] = useState(0);
+  useEffect(() => { const cycle = window.setInterval(() => setStep((current) => (current + 1) % 3), 2800); return () => window.clearInterval(cycle); }, []);
+  const copy = [["Finding someone interesting", "Checking intent, skills, and availability."], ["You both want to build AI tools", "A strong reason to meet."], ["You both connected", "A new private thread is ready."]][step];
+  return <div className={`match-moment step-${step}`} aria-live="polite"><div className="match-top"><span><i /> LIVE MEET</span><strong>{step === 0 ? "SEARCHING" : step === 1 ? "READY" : "CONNECTED"}</strong></div><div className="match-people"><div className="match-person you"><span className="cf-avatar large">YU</span><strong>You</strong><small>Your intent</small></div><div className="match-link"><span><i /><i /><i /></span></div><div className="match-person maya"><span className="cf-avatar large">MB</span><strong>Builder</strong><small>Shared context</small></div></div><div className="match-copy"><span>{copy[0]}</span><strong>{copy[1]}</strong></div><div className="match-tags"><span>AI tools</span><span>Creator products</span><span>React</span></div><button onClick={onStart}>{step === 2 ? "Create your account" : "Meet a builder"} <ArrowRight size={17} /></button><div className="match-dots"><i className={step === 0 ? "active" : ""} /><i className={step === 1 ? "active" : ""} /><i className={step === 2 ? "active" : ""} /></div></div>;
+}
