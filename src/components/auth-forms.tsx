@@ -1,26 +1,44 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowRight, Check, Info, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, Check, Chrome, Github, Info, Linkedin, Mail, ShieldCheck, Twitter } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "../lib/supabase/client";
 
 const interests = ["Learn", "Build", "Connect", "Collaborate", "Find feedback", "Explore ideas"];
 const skills = ["React", "Next.js", "JavaScript", "TypeScript", "Python", "Java", "AI / ML", "Product design", "DevOps", "Mobile"];
 const connectionGoals = ["A co-builder", "A mentor", "A collaborator", "Feedback partners", "People in my field", "Interesting builders"];
+type OAuthProvider = "google" | "github" | "linkedin_oidc" | "x";
 
-function Message({ error, notice }: { error: string; notice: string }) { return <>{error && <p className="auth-message error">{error}</p>}{notice && <p className="auth-message success"><Check size={15} />{notice}</p>}</>; }
+function Message({ error, notice }: { error: string; notice: string }) {
+  return <>{error && <p className="auth-message error" role="alert">{error}</p>}{notice && <p className="auth-message success"><Check size={15} />{notice}</p>}</>;
+}
 
 function PasswordInput({ value, onChange, label = "Password" }: { value: string; onChange: (value: string) => void; label?: string }) {
   const [visible, setVisible] = useState(false);
   return <label className="cf-field"><span>{label}</span><div className="password-box"><input type={visible ? "text" : "password"} value={value} onChange={(event) => onChange(event.target.value)} minLength={8} required autoComplete={label === "Password" ? "current-password" : "new-password"} /><button type="button" onClick={() => setVisible(!visible)} aria-label={visible ? "Hide password" : "Show password"} title={visible ? "Hide password" : "Show password"}><Info size={17} /></button></div></label>;
 }
 
+function OAuthProviders({ onFailure }: { onFailure: (message: string) => void }) {
+  const supabase = getSupabaseClient();
+  const [working, setWorking] = useState<OAuthProvider | null>(null);
+  const start = async (provider: OAuthProvider) => {
+    setWorking(provider);
+    onFailure("");
+    const { error } = await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/auth/callback` } });
+    if (error) { setWorking(null); onFailure(`We could not start ${provider === "x" ? "X" : provider === "linkedin_oidc" ? "LinkedIn" : provider} sign-in. ${error.message}`); }
+  };
+  const disabled = Boolean(working);
+  return <div className="auth-providers" aria-label="Continue with a connected provider"><div className="auth-provider-grid"><button type="button" className="auth-provider" onClick={() => void start("google")} disabled={disabled}><Chrome size={18} aria-hidden="true" />{working === "google" ? "Opening Google…" : "Google"}</button><button type="button" className="auth-provider" onClick={() => void start("github")} disabled={disabled}><Github size={18} aria-hidden="true" />{working === "github" ? "Opening GitHub…" : "GitHub"}</button><button type="button" className="auth-provider" onClick={() => void start("linkedin_oidc")} disabled={disabled}><Linkedin size={18} aria-hidden="true" />{working === "linkedin_oidc" ? "Opening LinkedIn…" : "LinkedIn"}</button><button type="button" className="auth-provider" onClick={() => void start("x")} disabled={disabled}><Twitter size={18} aria-hidden="true" />{working === "x" ? "Opening X…" : "X"}</button></div></div>;
+}
+
+function AuthDivider() { return <div className="auth-divider" role="separator"><span>or use email</span></div>; }
+
 export function SignInForm() {
   const router = useRouter(); const supabase = getSupabaseClient();
   const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState(""); const [working, setWorking] = useState(false);
   const submit = async (event: FormEvent) => { event.preventDefault(); setWorking(true); setError(""); const { data, error: signInError } = await supabase.auth.signInWithPassword({ email, password }); setWorking(false); if (signInError) { setError(signInError.message); return; } const { data: profile } = await supabase.from("cf_profiles").select("onboarding_complete").eq("id", data.user.id).maybeSingle(); router.push(profile?.onboarding_complete ? "/meet" : "/onboarding"); };
-  return <AuthFrame kicker="Welcome back" title={<>Continue the<br />conversation.</>} detail="Sign in to return to your private connections and Build Rooms."><form onSubmit={submit}><Message error={error} notice="" /><label className="cf-field"><span>Email</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><PasswordInput value={password} onChange={setPassword} /><button className="cf-primary" disabled={working}>{working ? "Signing in…" : "Sign in"}<ArrowRight size={17} /></button></form><button className="cf-text-button" onClick={() => router.push("/signup")}>New to CONFLUX? Create an account</button></AuthFrame>;
+  return <AuthFrame kicker="Welcome back" title={<>Continue the<br />conversation.</>} detail="Use a connected account or your email to return to private connections and Build Rooms."><Message error={error} notice="" /><OAuthProviders onFailure={setError} /><AuthDivider /><form onSubmit={submit}><label className="cf-field"><span>Email</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><PasswordInput value={password} onChange={setPassword} /><button className="cf-primary" disabled={working}>{working ? "Signing in…" : "Sign in with email"}<ArrowRight size={17} /></button></form><button className="cf-text-button" onClick={() => router.push("/signup")}>New to CONFLUX? Create an account</button></AuthFrame>;
 }
 
 export function RegisterFlow() {
@@ -30,7 +48,7 @@ export function RegisterFlow() {
   const verify = async (event: FormEvent) => { event.preventDefault(); setWorking(true); setError(""); const { error: verifyError } = await supabase.auth.verifyOtp({ email, token, type: "signup" }); setWorking(false); if (verifyError) { setError(verifyError.message); return; } router.push(`/onboarding?mobile=${encodeURIComponent(mobile.trim())}`); };
   const resend = async () => { setWorking(true); setError(""); const { error: resendError } = await supabase.auth.resend({ type: "signup", email }); setWorking(false); if (resendError) setError(resendError.message); else setNotice("A new verification code is on its way."); };
   if (step === "otp") return <AuthFrame kicker="Step 1 of 2" title={<>Verify your<br />email.</>} detail="Enter the one-time code sent to your inbox before adding your builder identity."><form onSubmit={verify}><Message error={error} notice={notice} /><label className="cf-field"><span>Email</span><input value={email} readOnly /></label><label className="cf-field"><span>One-time code</span><input className="otp-input" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} value={token} onChange={(event) => setToken(event.target.value.replace(/\D/g, ""))} required /></label><button className="cf-primary" disabled={working || token.length !== 6}>{working ? "Verifying…" : "Verify email"}<ArrowRight size={17} /></button></form><button className="cf-text-button" disabled={working} onClick={() => void resend()}>Resend code</button></AuthFrame>;
-  return <AuthFrame kicker="Start your identity" title={<>A real account<br />starts here.</>} detail="Email verification comes first. Your mobile number is optional and is never public."><form onSubmit={create}><Message error={error} notice={notice} /><label className="cf-field"><span>Email</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><PasswordInput value={password} onChange={setPassword} label="Create password" /><label className="cf-field"><span>Mobile number <em>Optional</em></span><input type="tel" value={mobile} onChange={(event) => setMobile(event.target.value)} autoComplete="tel" /></label><button className="cf-primary" disabled={working}>{working ? "Sending code…" : "Continue with email"}<Mail size={17} /></button></form><button className="cf-text-button" onClick={() => router.push("/login")}>Already have an account? Sign in</button></AuthFrame>;
+  return <AuthFrame kicker="Start your identity" title={<>Start with the<br />account you use.</>} detail="Choose a connected account or create one with email. An email confirmation is always required before your profile is visible."><Message error={error} notice={notice} /><OAuthProviders onFailure={setError} /><AuthDivider /><form onSubmit={create}><label className="cf-field"><span>Email</span><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><PasswordInput value={password} onChange={setPassword} label="Create password" /><label className="cf-field"><span>Mobile number <em>Optional</em></span><input type="tel" value={mobile} onChange={(event) => setMobile(event.target.value)} autoComplete="tel" /></label><button className="cf-primary" disabled={working}>{working ? "Sending code…" : "Continue with email"}<Mail size={17} /></button></form><button className="cf-text-button" onClick={() => router.push("/login")}>Already have an account? Sign in</button></AuthFrame>;
 }
 
 export function ProfileOnboarding() {

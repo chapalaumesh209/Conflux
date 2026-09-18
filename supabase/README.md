@@ -19,10 +19,13 @@ Before applying it:
 4. In Supabase Auth email templates, use the `{{ .Token }}` variable in the
    Confirm signup template so the registration flow can verify the six-digit
    OTP. Keep email confirmation enabled.
-5. Set the Supabase Site URL to `https://conflux.site`, and add
-   `https://conflux.site/` to redirect URLs. Add `https://www.conflux.site/`
-   only when that host is actively used. The application does not implement an
-   auth callback route, so do not invent one.
+5. Set the Supabase Site URL to `https://conflux.site`, and add both
+   `https://conflux.site/` and `https://conflux.site/auth/callback` to redirect
+   URLs. Add the equivalent `www` URLs only when that host is actively used.
+   The OAuth callback route performs the browser-side PKCE code exchange.
+   For Google, GitHub, LinkedIn OIDC, and X, configure the provider's upstream
+   callback URL as the Supabase callback shown in that provider's dashboard
+   (`https://<project-ref>.supabase.co/auth/v1/callback`), not the website URL.
 6. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` to the
    Vercel project, then redeploy.
 7. After deployment, validate the recorded counts, foreign keys, uniqueness,

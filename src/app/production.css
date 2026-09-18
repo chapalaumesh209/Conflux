@@ -32,3 +32,25 @@
 @keyframes cf-rise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } } @keyframes cf-spin { to { transform:rotate(360deg); } }
 @media (max-width: 760px) { .cf-app { display:block; padding-bottom:67px; }.cf-sidebar { position:fixed; z-index:4; top:auto; bottom:0; left:0; width:100%; height:67px; padding:8px 10px; border-top:1px solid var(--cf-line); border-right:0; background:rgba(244,241,232,.96); backdrop-filter:blur(12px); }.cf-sidebar .cf-brand, .cf-sidebar .cf-status, .cf-account { display:none; }.cf-sidebar nav { display:grid; grid-template-columns:repeat(4,1fr); gap:3px; }.cf-sidebar nav button { display:grid; justify-items:center; gap:3px; padding:6px 2px; border-radius:7px; font-size:10px; }.cf-sidebar nav button:hover { transform:none; }.cf-topbar { min-height:58px; padding:0 19px; }.cf-content { padding:27px 19px; }.cf-hero { display:flex; flex-direction:column; align-items:stretch; min-height:auto; }.cf-hero h1, .cf-auth h1, .cf-onboarding h1, .cf-gate h1 { font-size:clamp(45px,13vw,67px); }.cf-hero-note { margin-left:23px; }.cf-meet-actions, .cf-live-meet > footer, .cf-builds > header { align-items:stretch; flex-direction:column; }.cf-meet-actions > *, .cf-live-meet > footer > *, .cf-builds > header > * { width:100%; }.cf-split, .cf-build-layout { grid-template-columns:1fr; min-height:0; }.cf-list-pane, .cf-project-list { border-right:0; border-bottom:1px solid var(--cf-line); }.cf-thread { min-height:460px; }.cf-inline-form { grid-template-columns:1fr; }.cf-form-grid { grid-template-columns:1fr; }.cf-auth { display:block; }.cf-auth > section { min-height:72svh; padding:35px 24px; }.cf-auth .cf-brand { margin-bottom:56px; }.cf-auth > aside { min-height:28svh; padding:28px 24px; }.cf-auth aside span { font-size:28px; }.cf-person { box-shadow:5px 5px 0 var(--cf-blue); }.cf-person-context p { font-size:15px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior:auto !important; animation-duration:.01ms !important; transition-duration:.01ms !important; } }
+
+/* Auth providers are compact on desktop and retain a single clear tap target on narrow screens. */
+.cf-field select { width:100%; border:1px solid var(--cf-line); border-radius:7px; padding:11px; background:#fbfaf5; color:var(--cf-ink); font:14px inherit; outline:none; }
+.cf-field select:focus { border-color:var(--cf-blue); box-shadow:0 0 0 3px rgba(49,87,213,.1); }
+.auth-providers { width:min(100%,390px); }
+.auth-provider-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.auth-provider { display:flex; align-items:center; justify-content:center; gap:8px; min-width:0; min-height:44px; border:1px solid var(--cf-line); border-radius:9px; padding:10px; background:#fbfaf5; color:var(--cf-ink); font:600 13px/1.1 inherit; cursor:pointer; transition:background .18s ease,border-color .18s ease,transform .18s ease; }
+.auth-provider:hover:not(:disabled) { border-color:var(--cf-blue); background:#fff; transform:translateY(-1px); }
+.auth-provider:disabled { cursor:wait; opacity:.62; }
+.auth-provider:focus-visible, .cf-primary:focus-visible, .cf-secondary:focus-visible, .cf-text-button:focus-visible, .password-box button:focus-visible { outline:3px solid rgba(49,87,213,.35); outline-offset:3px; }
+.auth-divider { display:flex; align-items:center; gap:10px; width:min(100%,390px); margin:18px 0; color:var(--cf-muted); font-size:11px; }
+.auth-divider::before, .auth-divider::after { flex:1; height:1px; background:var(--cf-line); content:""; }
+.cf-auth .auth-message { width:min(100%,390px); margin:0 0 14px; }
+
+@media (max-width:420px) {
+  .cf-auth > section { padding:28px 19px; }
+  .cf-auth .cf-brand { margin-bottom:38px; }
+  .auth-provider-grid { grid-template-columns:1fr; }
+  .auth-provider { min-height:46px; }
+  .cf-auth h1 { font-size:clamp(42px,14vw,58px); }
+  .cf-onboarding { padding:24px 14px; }
+}
