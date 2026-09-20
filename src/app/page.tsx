@@ -1,22 +1,110 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, Check, CircleAlert, Compass, Heart, LogOut, MessageCircle, Mic, MonitorUp, Plus, RefreshCw, Send, ShieldCheck, Sparkles, UsersRound, Video, WifiOff, Wrench, X, Zap } from "lucide-react";
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  ArrowRight,
+  Bell,
+  Check,
+  CircleAlert,
+  Compass,
+  Heart,
+  LogOut,
+  MessageCircle,
+  Mic,
+  MonitorUp,
+  Plus,
+  PanelLeftClose,
+  PanelLeftOpen,
+  RefreshCw,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  UsersRound,
+  Video,
+  WifiOff,
+  Wrench,
+  X,
+  Zap,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabase/client";
-import type { Candidate, Connection, Message, Profile, Project, ProjectTask } from "../lib/supabase/models";
+import {
+  getSupabaseClient,
+  isSupabaseConfigured,
+} from "../lib/supabase/client";
+import type {
+  Candidate,
+  Connection,
+  Message,
+  Profile,
+  Project,
+  ProjectTask,
+} from "../lib/supabase/models";
 import { useMeetMedia, type MeetMediaKind } from "../lib/meet-media";
+import { FinalMeet } from "../components/final-meet";
 
 type View = "meet" | "discover" | "connections" | "builds" | "profile";
 type MeetCandidate = Candidate & { match_reasons?: string[] };
-type MeetMessage = { id: string; sender_id: string; body: string; created_at: string; client_message_id?: string | null };
-type MeetMediaRequest = { id: string; meet_session_id: string; requester_id: string; target_id: string; media_type: MeetMediaKind; status: "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELLED"; created_at: string };
-type UserSession = { user: { id: string; email?: string; email_confirmed_at?: string } };
+type MeetMessage = {
+  id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  client_message_id?: string | null;
+};
+type MeetMediaRequest = {
+  id: string;
+  meet_session_id: string;
+  requester_id: string;
+  target_id: string;
+  media_type: MeetMediaKind;
+  status: "PENDING" | "ACCEPTED" | "DECLINED" | "CANCELLED";
+  created_at: string;
+};
+type UserSession = {
+  user: { id: string; email?: string; email_confirmed_at?: string };
+};
 const configured = isSupabaseConfigured();
-const initials = (name: string) => name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-const formatDate = (value: string) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(value));
+const showcaseIntentOptions = [
+  "Meet developers",
+  "Find collaborators",
+  "Learn",
+  "Give feedback",
+  "Find early users",
+  "Present my product",
+];
+const initials = (name: string) =>
+  name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+const formatDate = (value: string) =>
+  new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(
+    new Date(value),
+  );
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) { return <label className="cf-field"><span>{label}</span>{children}</label>; }
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label className="cf-field">
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
 
 export default function ConfluxApp() {
   const pathname = usePathname();
@@ -26,8 +114,14 @@ export default function ConfluxApp() {
 function ProductApp() {
   const pathname = usePathname();
   const router = useRouter();
-  const supabase = useMemo(() => configured ? getSupabaseClient() : null, []);
-  const viewForPath: Record<string, View> = { "/meet": "meet", "/discover": "discover", "/connections": "connections", "/buildroom": "builds", "/profile": "profile" };
+  const supabase = useMemo(() => (configured ? getSupabaseClient() : null), []);
+  const viewForPath: Record<string, View> = {
+    "/meet": "meet",
+    "/discover": "discover",
+    "/connections": "connections",
+    "/buildroom": "builds",
+    "/profile": "profile",
+  };
   const [view, setView] = useState<View>(viewForPath[pathname] ?? "meet");
   const [session, setSession] = useState<UserSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -35,163 +129,2566 @@ function ProductApp() {
   const [booting, setBooting] = useState(true);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const activeUserId = useRef<string | null>(null);
-  const loadProfile = useCallback(async (userId: string) => {
-    if (!supabase) return;
-    const { data, error: profileError } = await supabase.from("cf_profiles").select("*").eq("id", userId).maybeSingle();
-    if (profileError) setError(profileError.message);
-    setProfile((data as Profile | null) ?? null);
-    setProfileReady(true);
-  }, [supabase]);
+  const loadProfile = useCallback(
+    async (userId: string) => {
+      if (!supabase) return;
+      const { data, error: profileError } = await supabase
+        .from("cf_profiles")
+        .select("*")
+        .eq("id", userId)
+        .maybeSingle();
+      if (profileError) setError(profileError.message);
+      setProfile((data as Profile | null) ?? null);
+      setProfileReady(true);
+    },
+    [supabase],
+  );
   useEffect(() => {
-    if (!supabase) { setProfileReady(true); setBooting(false); return; }
+    if (!supabase) {
+      setProfileReady(true);
+      setBooting(false);
+      return;
+    }
     let active = true;
-    void supabase.auth.getSession().then(async ({ data: { session: nextSession } }) => {
-      if (!active) return;
-      setSession(nextSession as typeof session);
-      if (nextSession) { activeUserId.current = nextSession.user.id; setProfileReady(false); await loadProfile(nextSession.user.id); }
-      else { activeUserId.current = null; setProfile(null); setProfileReady(true); }
-      if (active) setBooting(false);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (!active) return;
-      setSession(nextSession as typeof session);
-      if (!nextSession) { activeUserId.current = null; setProfile(null); setProfileReady(true); return; }
-      // Token refreshes are not new sign-ins. Keeping the loaded profile in
-      // memory prevents a refresh from incorrectly sending a member through
-      // onboarding again.
-      if (activeUserId.current === nextSession.user.id) return;
-      activeUserId.current = nextSession.user.id;
-      setProfile(null); setProfileReady(false);
-      void loadProfile(nextSession.user.id);
-    });
-    return () => { active = false; listener.subscription.unsubscribe(); };
+    void supabase.auth
+      .getSession()
+      .then(async ({ data: { session: nextSession } }) => {
+        if (!active) return;
+        setSession(nextSession as typeof session);
+        if (nextSession) {
+          activeUserId.current = nextSession.user.id;
+          setProfileReady(false);
+          await loadProfile(nextSession.user.id);
+        } else {
+          activeUserId.current = null;
+          setProfile(null);
+          setProfileReady(true);
+        }
+        if (active) setBooting(false);
+      });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        if (!active) return;
+        setSession(nextSession as typeof session);
+        if (!nextSession) {
+          activeUserId.current = null;
+          setProfile(null);
+          setProfileReady(true);
+          return;
+        }
+        // Token refreshes are not new sign-ins. Keeping the loaded profile in
+        // memory prevents a refresh from incorrectly sending a member through
+        // onboarding again.
+        if (activeUserId.current === nextSession.user.id) return;
+        activeUserId.current = nextSession.user.id;
+        setProfile(null);
+        setProfileReady(false);
+        void loadProfile(nextSession.user.id);
+      },
+    );
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
   }, [loadProfile, supabase]);
-  useEffect(() => { if (!notice) return; const id = window.setTimeout(() => setNotice(""), 3600); return () => window.clearTimeout(id); }, [notice]);
-  useEffect(() => { setView(viewForPath[pathname] ?? "meet"); }, [pathname]);
-  if (booting) return <main className="cf-loading"><span className="cf-pulse" />Opening CONFLUX</main>;
+  useEffect(() => {
+    if (!notice) return;
+    const id = window.setTimeout(() => setNotice(""), 3600);
+    return () => window.clearTimeout(id);
+  }, [notice]);
+  useEffect(() => {
+    setView(viewForPath[pathname] ?? "meet");
+  }, [pathname]);
+  useEffect(() => {
+    setSidebarCollapsed(
+      window.localStorage.getItem("conflux-sidebar-collapsed") === "true",
+    );
+  }, []);
+  useEffect(() => {
+    if (!supabase || !session?.user.id || !profile?.onboarding_complete) return;
+    let active = true;
+    const heartbeat = async () => {
+      if (!active || document.visibilityState !== "visible") return;
+      // Presence is intentionally best-effort. The authoritative status is
+      // resolved by the server for each eligible viewer.
+      await supabase.rpc("cf_heartbeat_presence");
+    };
+    const onVisibilityChange = () => void heartbeat();
+    void heartbeat();
+    const interval = window.setInterval(() => void heartbeat(), 45_000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [profile?.onboarding_complete, session?.user.id, supabase]);
+  const toggleSidebar = () => {
+    setSidebarCollapsed((current) => {
+      const next = !current;
+      window.localStorage.setItem("conflux-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+  if (booting)
+    return (
+      <main className="cf-loading">
+        <span className="cf-pulse" />
+        Opening CONFLUX
+      </main>
+    );
   if (!configured) return <ConnectionRequired />;
   if (!session) return <NeedsLogin />;
-  if (!profileReady) return <main className="cf-loading"><span className="cf-pulse" />Loading your saved builder profile</main>;
+  if (!profileReady)
+    return (
+      <main className="cf-loading">
+        <span className="cf-pulse" />
+        Loading your saved builder profile
+      </main>
+    );
   if (!profile || !profile.onboarding_complete) return <NeedsOnboarding />;
   const client = supabase!;
-  const nav: Array<[View, string, typeof Zap]> = [["meet", "Meet", Zap], ["discover", "Discover", Sparkles], ["connections", "Connections", UsersRound], ["builds", "Build rooms", Wrench], ["profile", "Profile", Compass]];
-  const routes: Record<View, string> = { meet: "/meet", discover: "/discover", connections: "/connections", builds: "/buildroom", profile: "/profile" };
-  return <main className="cf-app"><aside className="cf-sidebar"><button className="cf-brand" onClick={() => router.push("/")} aria-label="CONFLUX home">CONFLUX<span>.</span></button><p className="cf-status"><i />Intentional introductions</p><nav aria-label="Primary navigation">{nav.map(([key, label, Icon]) => <button key={key} className={view === key ? "active" : ""} onClick={() => router.push(routes[key])}><Icon size={18} />{label}</button>)}</nav><div className="cf-account"><span className="cf-avatar">{initials(profile.full_name)}</span><span><strong>{profile.full_name}</strong><small>{profile.email_verified ? "Verified member" : "Email pending"}</small></span></div></aside><section className="cf-main"><header className="cf-topbar"><span className="cf-kicker">{view === "meet" ? "Live introductions" : view === "discover" ? "Relevant members" : view === "connections" ? "Mutual connections" : view === "builds" ? "Shared work" : "Your builder identity"}</span><button className="cf-quiet" onClick={() => void client.auth.signOut()}><LogOut size={16} />Sign out</button></header><div className="cf-content">{error && <div className="cf-alert error"><CircleAlert size={18} /><span>{error}</span><button onClick={() => setError("")} aria-label="Dismiss error"><X size={17} /></button></div>}{notice && <div className="cf-alert success"><Check size={18} /><span>{notice}</span></div>}{view === "meet" && <Meet userId={session.user.id} onNotice={setNotice} onError={setError} onConnected={() => router.push("/connections")} />}{view === "connections" && <Connections userId={session.user.id} onError={setError} onOpenBuild={() => router.push("/buildroom")} />}{view === "builds" && <BuildRooms userId={session.user.id} onError={setError} onNotice={setNotice} />}{view === "profile" && <ProfileEditor profile={profile} email={session.user.email ?? ""} onSaved={loadProfile} onError={setError} onNotice={setNotice} />}</div></section></main>;
+  const nav: Array<[View, string, typeof Zap]> = [
+    ["meet", "Meet", Zap],
+    ["discover", "Discover", Sparkles],
+    ["connections", "Connections", UsersRound],
+    ["builds", "Build rooms", Wrench],
+    ["profile", "Profile", Compass],
+  ];
+  const routes: Record<View, string> = {
+    meet: "/meet",
+    discover: "/discover",
+    connections: "/connections",
+    builds: "/buildroom",
+    profile: "/profile",
+  };
+  return (
+    <main
+      className={`cf-app ${sidebarCollapsed ? "cf-sidebar-collapsed" : ""}`}
+    >
+      <aside className="cf-sidebar">
+        <button
+          className="cf-sidebar-toggle"
+          onClick={toggleSidebar}
+          aria-label={
+            sidebarCollapsed ? "Expand navigation" : "Collapse navigation"
+          }
+          title={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
+        >
+          {sidebarCollapsed ? (
+            <PanelLeftOpen size={18} />
+          ) : (
+            <PanelLeftClose size={18} />
+          )}
+        </button>
+        <button
+          className="cf-brand"
+          onClick={() => router.push("/")}
+          aria-label="CONFLUX home"
+        >
+          CONFLUX<span>.</span>
+        </button>
+        <p className="cf-status">
+          <i />
+          Intentional introductions
+        </p>
+        <nav aria-label="Primary navigation">
+          {nav.map(([key, label, Icon]) => (
+            <button
+              key={key}
+              className={view === key ? "active" : ""}
+              onClick={() => router.push(routes[key])}
+              title={sidebarCollapsed ? label : undefined}
+            >
+              <Icon size={18} />
+              <span className="cf-nav-label">{label}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="cf-account">
+          <span className="cf-avatar">{initials(profile.full_name)}</span>
+          <span>
+            <strong>{profile.full_name}</strong>
+            <small>
+              {profile.email_verified ? "Verified member" : "Email pending"}
+            </small>
+          </span>
+        </div>
+      </aside>
+      <section className="cf-main">
+        <header className="cf-topbar">
+          <span className="cf-kicker">
+            {view === "meet"
+              ? "Live introductions"
+              : view === "discover"
+                ? "Relevant members"
+                : view === "connections"
+                  ? "Mutual connections"
+                  : view === "builds"
+                    ? "Shared work"
+                    : "Your builder identity"}
+          </span>
+          <div className="cf-topbar-actions">
+            <NotificationBell userId={session.user.id} />
+            <button
+              className="cf-quiet"
+              onClick={() => void client.auth.signOut()}
+            >
+              <LogOut size={16} />
+              Sign out
+            </button>
+          </div>
+        </header>
+        <div className="cf-content">
+          {error && (
+            <div className="cf-alert error">
+              <CircleAlert size={18} />
+              <span>{error}</span>
+              <button onClick={() => setError("")} aria-label="Dismiss error">
+                <X size={17} />
+              </button>
+            </div>
+          )}
+          {notice && (
+            <div className="cf-alert success">
+              <Check size={18} />
+              <span>{notice}</span>
+            </div>
+          )}
+          {view === "meet" && (
+            <FinalMeet
+              userId={session.user.id}
+              onNotice={setNotice}
+              onError={setError}
+              onConnected={() => undefined}
+            />
+          )}
+          {view === "connections" && (
+            <Connections
+              userId={session.user.id}
+              onError={setError}
+              onOpenBuild={() => router.push("/buildroom")}
+            />
+          )}
+          {view === "builds" && (
+            <BuildRooms
+              userId={session.user.id}
+              onError={setError}
+              onNotice={setNotice}
+            />
+          )}
+          {view === "profile" && (
+            <ProfileEditor
+              profile={profile}
+              email={session.user.email ?? ""}
+              onSaved={loadProfile}
+              onError={setError}
+              onNotice={setNotice}
+            />
+          )}
+        </div>
+      </section>
+    </main>
+  );
 }
 
-function ConnectionRequired() { return <main className="cf-gate"><section><span className="cf-orb">↗</span><p className="cf-kicker">Deployment setup required</p><h1>Connect this build<br />to its real data.</h1><p>CONFLUX will not show sample people or pretend conversations. Add the public Supabase URL and anon key in Vercel, then redeploy.</p><code>NEXT_PUBLIC_SUPABASE_URL<br />NEXT_PUBLIC_SUPABASE_ANON_KEY</code><small>Keep service-role credentials only on a trusted server or Supabase Edge Function.</small></section></main>; }
+type NotificationItem = {
+  id: string;
+  kind: string;
+  payload: Record<string, string>;
+  read_at: string | null;
+  created_at: string;
+};
+
+const notificationCategory = (kind: string) => {
+  if (kind.includes("SHOWCASE")) return "Showcase";
+  if (kind.includes("MEET")) return "Meet";
+  if (kind.includes("CONNECTION")) return "Connections";
+  if (kind.includes("CHAT") || kind.includes("MESSAGE")) return "Messages";
+  if (kind.includes("PROJECT") || kind.includes("ROOM")) return "Build Rooms";
+  return "System/Security";
+};
+
+const notificationTitle = (kind: string) => {
+  const labels: Record<string, string> = {
+    MEET_JOIN_REQUEST: "Someone wants to meet",
+    MEET_JOINED: "They joined your Meet",
+    MEET_IGNORED: "Meet invitation ignored",
+    MEET_CONNECT_PENDING: "Connect request waiting",
+    SHOWCASE_MEET_INVITE: "A product showcase invitation is waiting",
+  };
+  return labels[kind] ?? kind.replaceAll("_", " ");
+};
+
+function NotificationBell({ userId }: { userId: string }) {
+  const router = useRouter();
+  const supabase = useMemo(() => getSupabaseClient(), []);
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [open, setOpen] = useState(false);
+  const [category, setCategory] = useState("All");
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from("cf_notifications")
+      .select("*")
+      .eq("profile_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(25);
+    setItems((data as NotificationItem[]) ?? []);
+  }, [supabase, userId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useEffect(() => {
+    const channel = supabase
+      .channel(`notifications:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "cf_notifications",
+          filter: `profile_id=eq.${userId}`,
+        },
+        (payload) =>
+          setItems((current) => [payload.new as NotificationItem, ...current]),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "cf_notifications",
+          filter: `profile_id=eq.${userId}`,
+        },
+        (payload) =>
+          setItems((current) =>
+            current.map((item) =>
+              item.id === (payload.new as NotificationItem).id
+                ? (payload.new as NotificationItem)
+                : item,
+            ),
+          ),
+      )
+      .subscribe();
+    return () => void supabase.removeChannel(channel);
+  }, [supabase, userId]);
+  const unread = items.filter((item) => !item.read_at).length;
+  const visible =
+    category === "All"
+      ? items
+      : items.filter((item) => notificationCategory(item.kind) === category);
+  const openItem = async (item: NotificationItem) => {
+    if (!item.read_at) {
+      const { error } = await supabase
+        .from("cf_notifications")
+        .update({ read_at: new Date().toISOString() })
+        .eq("id", item.id);
+      if (!error)
+        setItems((current) =>
+          current.map((currentItem) =>
+            currentItem.id === item.id
+              ? { ...currentItem, read_at: new Date().toISOString() }
+              : currentItem,
+          ),
+        );
+    }
+    setOpen(false);
+    if (item.payload.conversation_id)
+      router.push(`/chat/${item.payload.conversation_id}`);
+    else if (item.payload.connection_id)
+      router.push(`/connections/${item.payload.connection_id}`);
+    else if (item.payload.meet_session_id)
+      router.push(`/meet?session=${item.payload.meet_session_id}`);
+    else if (item.payload.project_id) router.push("/buildroom");
+  };
+  const markAllRead = async () => {
+    const unreadIds = items
+      .filter((item) => !item.read_at)
+      .map((item) => item.id);
+    if (!unreadIds.length) return;
+    const now = new Date().toISOString();
+    const { error } = await supabase
+      .from("cf_notifications")
+      .update({ read_at: now })
+      .in("id", unreadIds);
+    if (!error)
+      setItems((current) =>
+        current.map((item) => ({ ...item, read_at: item.read_at ?? now })),
+      );
+  };
+  return (
+    <div className="cf-notification-wrap">
+      <button
+        className="cf-notification-bell"
+        onClick={() => setOpen((current) => !current)}
+        aria-label={unread ? `${unread} unread notifications` : "Notifications"}
+        aria-expanded={open}
+      >
+        <Bell size={18} />
+        {unread > 0 && <span>{unread > 9 ? "9+" : unread}</span>}
+      </button>
+      {open && (
+        <section className="cf-notification-popover" aria-label="Notifications">
+          <header>
+            <div>
+              <strong>Notifications</strong>
+              <small>{unread ? `${unread} unread` : "All caught up"}</small>
+            </div>
+            <button
+              className="cf-quiet"
+              onClick={() => void markAllRead()}
+              disabled={!unread}
+            >
+              Read all
+            </button>
+          </header>
+          <div className="cf-notification-filters">
+            {[
+              "All",
+              "Meet",
+              "Connections",
+              "Messages",
+              "Showcase",
+              "Build Rooms",
+              "System/Security",
+            ].map((item) => (
+              <button
+                key={item}
+                className={category === item ? "active" : ""}
+                onClick={() => setCategory(item)}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+          <div className="cf-notification-list">
+            {visible.length ? (
+              visible.map((item) => (
+                <button
+                  key={item.id}
+                  className={item.read_at ? "" : "unread"}
+                  onClick={() => void openItem(item)}
+                >
+                  <i />
+                  <span>
+                    <strong>{notificationTitle(item.kind)}</strong>
+                    <small>{notificationCategory(item.kind)}</small>
+                  </span>
+                  <ArrowRight size={15} />
+                </button>
+              ))
+            ) : (
+              <p>No notifications in this category.</p>
+            )}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function ConnectionRequired() {
+  return (
+    <main className="cf-gate">
+      <section>
+        <span className="cf-orb">↗</span>
+        <p className="cf-kicker">Deployment setup required</p>
+        <h1>
+          Connect this build
+          <br />
+          to its real data.
+        </h1>
+        <p>
+          CONFLUX will not show sample people or pretend conversations. Add the
+          public Supabase URL and anon key in Vercel, then redeploy.
+        </p>
+        <code>
+          NEXT_PUBLIC_SUPABASE_URL
+          <br />
+          NEXT_PUBLIC_SUPABASE_ANON_KEY
+        </code>
+        <small>
+          Keep service-role credentials only on a trusted server or Supabase
+          Edge Function.
+        </small>
+      </section>
+    </main>
+  );
+}
 
 function NeedsOnboarding() {
   const router = useRouter();
-  useEffect(() => { router.replace("/onboarding"); }, [router]);
-  return <main className="cf-loading"><span className="cf-pulse" />Opening your profile setup</main>;
+  useEffect(() => {
+    router.replace("/onboarding");
+  }, [router]);
+  return (
+    <main className="cf-loading">
+      <span className="cf-pulse" />
+      Opening your profile setup
+    </main>
+  );
 }
 
 function NeedsLogin() {
   const router = useRouter();
-  useEffect(() => { router.replace("/login"); }, [router]);
-  return <main className="cf-loading"><span className="cf-pulse" />Opening sign in</main>;
+  useEffect(() => {
+    router.replace("/login");
+  }, [router]);
+  return (
+    <main className="cf-loading">
+      <span className="cf-pulse" />
+      Opening sign in
+    </main>
+  );
 }
 
 function Auth({ onError }: { onError: (message: string) => void }) {
-  const supabase = getSupabaseClient(); const [mode, setMode] = useState<"signin" | "signup">("signin"); const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [working, setWorking] = useState(false);
-  const submit = async (event: FormEvent) => { event.preventDefault(); setWorking(true); onError(""); const result = mode === "signin" ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/` } }); setWorking(false); if (result.error) onError(result.error.message); };
-  return <main className="cf-auth"><section><button className="cf-brand" aria-label="CONFLUX">CONFLUX<span>.</span></button><p className="cf-kicker">People behind what gets built</p><h1>Build with more<br />than a profile.</h1><p>Start with a real identity, a useful conversation, and mutual intent.</p><form onSubmit={submit}><Field label="Email"><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" /></Field><Field label="Password"><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete={mode === "signin" ? "current-password" : "new-password"} /></Field><button className="cf-primary" disabled={working}>{working ? "Working…" : mode === "signin" ? "Sign in" : "Create account"}<ArrowRight size={17} /></button></form><button className="cf-text-button" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>{mode === "signin" ? "New here? Create an account" : "Already a member? Sign in"}</button></section><aside><span>“The right build partner is usually one honest conversation away.”</span></aside></main>;
+  const supabase = getSupabaseClient();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [working, setWorking] = useState(false);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setWorking(true);
+    onError("");
+    const result =
+      mode === "signin"
+        ? await supabase.auth.signInWithPassword({ email, password })
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: { emailRedirectTo: `${window.location.origin}/` },
+          });
+    setWorking(false);
+    if (result.error) onError(result.error.message);
+  };
+  return (
+    <main className="cf-auth">
+      <section>
+        <button className="cf-brand" aria-label="CONFLUX">
+          CONFLUX<span>.</span>
+        </button>
+        <p className="cf-kicker">People behind what gets built</p>
+        <h1>
+          Build with more
+          <br />
+          than a profile.
+        </h1>
+        <p>
+          Start with a real identity, a useful conversation, and mutual intent.
+        </p>
+        <form onSubmit={submit}>
+          <Field label="Email">
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </Field>
+          <Field label="Password">
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              autoComplete={
+                mode === "signin" ? "current-password" : "new-password"
+              }
+            />
+          </Field>
+          <button className="cf-primary" disabled={working}>
+            {working
+              ? "Working…"
+              : mode === "signin"
+                ? "Sign in"
+                : "Create account"}
+            <ArrowRight size={17} />
+          </button>
+        </form>
+        <button
+          className="cf-text-button"
+          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+        >
+          {mode === "signin"
+            ? "New here? Create an account"
+            : "Already a member? Sign in"}
+        </button>
+      </section>
+      <aside>
+        <span>
+          “The right build partner is usually one honest conversation away.”
+        </span>
+      </aside>
+    </main>
+  );
 }
 
-function Onboarding({ session, initial, onComplete, onError }: { session: UserSession; initial: Profile | null; onComplete: (id: string) => Promise<void>; onError: (message: string) => void }) {
-  const supabase = getSupabaseClient(); const [name, setName] = useState(initial?.full_name ?? ""); const [username, setUsername] = useState(initial?.username ?? ""); const [headline, setHeadline] = useState(initial?.headline ?? ""); const [skills, setSkills] = useState(initial?.skills.join(", ") ?? ""); const [build, setBuild] = useState(initial?.current_build ?? ""); const [lookingFor, setLookingFor] = useState(initial?.looking_for ?? ""); const [working, setWorking] = useState(false);
-  const submit = async (event: FormEvent) => { event.preventDefault(); setWorking(true); onError(""); const cleanSkills = skills.split(",").map((skill) => skill.trim()).filter(Boolean).slice(0, 8); const { error } = await supabase.from("cf_profiles").upsert({ id: session.user.id, username: username.trim(), full_name: name.trim(), headline: headline.trim() || null, skills: cleanSkills, current_build: build.trim() || null, looking_for: lookingFor.trim() || null, email_verified: Boolean(session.user.email_confirmed_at), onboarding_complete: true, is_discoverable: true }); setWorking(false); if (error) { onError(error.message); return; } await onComplete(session.user.id); };
-  return <main className="cf-onboarding"><form onSubmit={submit}><button className="cf-brand" type="button">CONFLUX<span>.</span></button><p className="cf-kicker">Set the signal</p><h1>Give a first conversation a head start.</h1><p>Keep it compact. Your contact links stay private until you both choose Connect.</p><div className="cf-form-grid"><Field label="Your name"><input value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} /></Field><Field label="Username"><input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))} required minLength={3} maxLength={30} /></Field><Field label="What do you build?"><input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="Product engineer building helpful tools" maxLength={180} /></Field><Field label="Skills, separated by commas"><input value={skills} onChange={(e) => setSkills(e.target.value)} placeholder="React, design systems, AI" /></Field><Field label="What is moving right now?"><textarea value={build} onChange={(e) => setBuild(e.target.value)} placeholder="A sentence is plenty." maxLength={240} /></Field><Field label="Who would be useful to meet?"><textarea value={lookingFor} onChange={(e) => setLookingFor(e.target.value)} placeholder="A collaborator, feedback, or a new perspective." maxLength={240} /></Field></div><button className="cf-primary" disabled={working}>{working ? "Saving…" : "Enter CONFLUX"}<ArrowRight size={17} /></button></form></main>;
-}
-
-function CandidateCard({ candidate, compact = false }: { candidate: MeetCandidate; compact?: boolean }) { return <article className={`cf-person ${compact ? "compact" : ""}`}><span className="cf-avatar large">{initials(candidate.full_name)}</span><div><div className="cf-person-title"><h2>{candidate.full_name}</h2>{candidate.email_verified && <ShieldCheck size={16} aria-label="Email verified" />}</div><p>@{candidate.username} · {candidate.headline || "Builder"}{candidate.experience_band ? ` · ${candidate.experience_band.toLowerCase()}` : ""}{candidate.city ? ` · ${candidate.city}` : ""}</p>{candidate.match_reason && <strong className="cf-match">{candidate.match_reason}</strong>}</div>{candidate.skills.length > 0 && <div className="cf-chips">{candidate.skills.slice(0, 4).map((skill) => <span key={skill}>{skill}</span>)}</div>} {!compact && <><div className="cf-meet-reasons"><b>Why this person</b>{(candidate.match_reasons?.slice(0, 3) ?? [candidate.match_reason]).filter(Boolean).map((reason) => <span key={reason}>{reason}</span>)}</div><div className="cf-candidate-signal"><section><b>Explores</b><p>{candidate.domains?.length ? candidate.domains.join(" · ") : "Builder communities and current work"}</p></section><section><b>Open to</b><p>{candidate.goals?.length ? candidate.goals.join(" · ") : candidate.looking_for || "A useful introduction"}</p></section></div><div className="cf-person-context"><b>{candidate.current_build ? "Currently building" : "Looking for"}</b><p>{candidate.current_build || candidate.looking_for || "Open to a useful introduction."}</p></div><div className="cf-verification">{candidate.email_verified && <span><Check size={13} />Email</span>}{candidate.github_verified && <span><Check size={13} />GitHub</span>}{candidate.linkedin_verified && <span><Check size={13} />LinkedIn</span>}<small>Contact links stay private until you both Connect.</small></div></>}</article>; }
-
-function Meet({ userId, onNotice, onError, onConnected }: { userId: string; onNotice: (message: string) => void; onError: (message: string) => void; onConnected: () => void }) {
-  const router = useRouter(); const supabase = getSupabaseClient(); const [candidate, setCandidate] = useState<MeetCandidate | null>(null); const [sessionId, setSessionId] = useState<string | null>(null); const [messages, setMessages] = useState<MeetMessage[]>([]); const [mediaRequests, setMediaRequests] = useState<MeetMediaRequest[]>([]); const [draft, setDraft] = useState(""); const [loading, setLoading] = useState(true); const [searched, setSearched] = useState(false); const [sending, setSending] = useState(false); const [decision, setDecision] = useState<"CONNECT" | "NEXT" | null>(null); const [safetyOpen, setSafetyOpen] = useState(false); const [online, setOnline] = useState(true); const [mutual, setMutual] = useState<{ connectionId: string; conversationId: string | null } | null>(null); const [isPro, setIsPro] = useState(false); const [skippedCandidateIds, setSkippedCandidateIds] = useState<string[]>([]);
-  const media = useMeetMedia({ supabase, sessionId, userId, peerId: candidate?.id ?? null, onError, onNotice });
-  const prompts = ["What are you building right now?", "What are you learning lately?", "What kind of collaboration would help most?"];
-  const hydrate = useCallback(async (id: string) => { const [history, requests] = await Promise.all([supabase.from("cf_meet_messages").select("*").eq("meet_session_id", id).order("created_at"), supabase.from("cf_meet_media_requests").select("*").eq("meet_session_id", id).order("created_at", { ascending: false })]); if (history.error) onError(history.error.message); else setMessages((history.data as MeetMessage[]) ?? []); if (requests.error) onError(requests.error.message); else setMediaRequests((requests.data as MeetMediaRequest[]) ?? []); }, [onError, supabase]);
-  const discover = useCallback(async (skipCurrent = false) => {
-    const exclusions = skipCurrent && candidate ? Array.from(new Set([...skippedCandidateIds, candidate.id])) : skippedCandidateIds;
-    if (skipCurrent && candidate) setSkippedCandidateIds(exclusions);
-    media.stop(); setLoading(true); setSearched(true); setCandidate(null); setSessionId(null); setMessages([]); setMediaRequests([]); setDecision(null); onError("");
-    const { data, error } = await supabase.rpc("cf_meet_candidate_preview", { excluded_candidate_ids: exclusions });
-    setLoading(false);
+function Onboarding({
+  session,
+  initial,
+  onComplete,
+  onError,
+}: {
+  session: UserSession;
+  initial: Profile | null;
+  onComplete: (id: string) => Promise<void>;
+  onError: (message: string) => void;
+}) {
+  const supabase = getSupabaseClient();
+  const [name, setName] = useState(initial?.full_name ?? "");
+  const [username, setUsername] = useState(initial?.username ?? "");
+  const [headline, setHeadline] = useState(initial?.headline ?? "");
+  const [skills, setSkills] = useState(initial?.skills.join(", ") ?? "");
+  const [build, setBuild] = useState(initial?.current_build ?? "");
+  const [lookingFor, setLookingFor] = useState(initial?.looking_for ?? "");
+  const [working, setWorking] = useState(false);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setWorking(true);
+    onError("");
+    const cleanSkills = skills
+      .split(",")
+      .map((skill) => skill.trim())
+      .filter(Boolean)
+      .slice(0, 8);
+    const { error } = await supabase.from("cf_profiles").upsert({
+      id: session.user.id,
+      username: username.trim(),
+      full_name: name.trim(),
+      headline: headline.trim() || null,
+      skills: cleanSkills,
+      current_build: build.trim() || null,
+      looking_for: lookingFor.trim() || null,
+      email_verified: Boolean(session.user.email_confirmed_at),
+      onboarding_complete: true,
+      is_discoverable: true,
+    });
+    setWorking(false);
     if (error) {
-      // A deployed database that has not yet received migration 008 can still
-      // rotate candidates safely through the existing eligibility function.
-      if (error.message.includes("cf_meet_candidate_preview") && error.message.includes("schema cache")) {
-        const fallback = await supabase.rpc("cf_discover_profiles", { result_limit: 24 });
-        if (fallback.error) { onError(fallback.error.message); return; }
-        const next = ((fallback.data as MeetCandidate[]) ?? []).find((person) => !exclusions.includes(person.id)) ?? null;
-        setCandidate(next ? { ...next, match_reasons: [next.match_reason || "Relevant to your current builder context"] } : null);
+      onError(error.message);
+      return;
+    }
+    await onComplete(session.user.id);
+  };
+  return (
+    <main className="cf-onboarding">
+      <form onSubmit={submit}>
+        <button className="cf-brand" type="button">
+          CONFLUX<span>.</span>
+        </button>
+        <p className="cf-kicker">Set the signal</p>
+        <h1>Give a first conversation a head start.</h1>
+        <p>
+          Keep it compact. Your contact links stay private until you both choose
+          Connect.
+        </p>
+        <div className="cf-form-grid">
+          <Field label="Your name">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              maxLength={120}
+            />
+          </Field>
+          <Field label="Username">
+            <input
+              value={username}
+              onChange={(e) =>
+                setUsername(
+                  e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""),
+                )
+              }
+              required
+              minLength={3}
+              maxLength={30}
+            />
+          </Field>
+          <Field label="What do you build?">
+            <input
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+              placeholder="Product engineer building helpful tools"
+              maxLength={180}
+            />
+          </Field>
+          <Field label="Skills, separated by commas">
+            <input
+              value={skills}
+              onChange={(e) => setSkills(e.target.value)}
+              placeholder="React, design systems, AI"
+            />
+          </Field>
+          <Field label="What is moving right now?">
+            <textarea
+              value={build}
+              onChange={(e) => setBuild(e.target.value)}
+              placeholder="A sentence is plenty."
+              maxLength={240}
+            />
+          </Field>
+          <Field label="Who would be useful to meet?">
+            <textarea
+              value={lookingFor}
+              onChange={(e) => setLookingFor(e.target.value)}
+              placeholder="A collaborator, feedback, or a new perspective."
+              maxLength={240}
+            />
+          </Field>
+        </div>
+        <button className="cf-primary" disabled={working}>
+          {working ? "Saving…" : "Enter CONFLUX"}
+          <ArrowRight size={17} />
+        </button>
+      </form>
+    </main>
+  );
+}
+
+function CandidateCard({
+  candidate,
+  compact = false,
+}: {
+  candidate: MeetCandidate;
+  compact?: boolean;
+}) {
+  return (
+    <article className={`cf-person ${compact ? "compact" : ""}`}>
+      <span className="cf-avatar large">{initials(candidate.full_name)}</span>
+      <div>
+        <div className="cf-person-title">
+          <h2>{candidate.full_name}</h2>
+          {candidate.email_verified && (
+            <ShieldCheck size={16} aria-label="Email verified" />
+          )}
+        </div>
+        <p>
+          @{candidate.username} · {candidate.headline || "Builder"}
+          {candidate.experience_band
+            ? ` · ${candidate.experience_band.toLowerCase()}`
+            : ""}
+          {candidate.city ? ` · ${candidate.city}` : ""}
+        </p>
+        {candidate.match_reason && (
+          <strong className="cf-match">{candidate.match_reason}</strong>
+        )}
+      </div>
+      {candidate.skills.length > 0 && (
+        <div className="cf-chips">
+          {candidate.skills.slice(0, 4).map((skill) => (
+            <span key={skill}>{skill}</span>
+          ))}
+        </div>
+      )}{" "}
+      {!compact && (
+        <>
+          <div className="cf-meet-reasons">
+            <b>Why this person</b>
+            {(candidate.match_reasons?.slice(0, 3) ?? [candidate.match_reason])
+              .filter(Boolean)
+              .map((reason) => (
+                <span key={reason}>{reason}</span>
+              ))}
+          </div>
+          <div className="cf-candidate-signal">
+            <section>
+              <b>Explores</b>
+              <p>
+                {candidate.domains?.length
+                  ? candidate.domains.join(" · ")
+                  : "Builder communities and current work"}
+              </p>
+            </section>
+            <section>
+              <b>Open to</b>
+              <p>
+                {candidate.goals?.length
+                  ? candidate.goals.join(" · ")
+                  : candidate.looking_for || "A useful introduction"}
+              </p>
+            </section>
+          </div>
+          <div className="cf-person-context">
+            <b>
+              {candidate.current_build ? "Currently building" : "Looking for"}
+            </b>
+            <p>
+              {candidate.current_build ||
+                candidate.looking_for ||
+                "Open to a useful introduction."}
+            </p>
+          </div>
+          <div className="cf-verification">
+            {candidate.email_verified && (
+              <span>
+                <Check size={13} />
+                Email
+              </span>
+            )}
+            {candidate.github_verified && (
+              <span>
+                <Check size={13} />
+                GitHub
+              </span>
+            )}
+            {candidate.linkedin_verified && (
+              <span>
+                <Check size={13} />
+                LinkedIn
+              </span>
+            )}
+            <small>Contact links stay private until you both Connect.</small>
+          </div>
+        </>
+      )}
+    </article>
+  );
+}
+
+function Meet({
+  userId,
+  onNotice,
+  onError,
+  onConnected,
+}: {
+  userId: string;
+  onNotice: (message: string) => void;
+  onError: (message: string) => void;
+  onConnected: () => void;
+}) {
+  const router = useRouter();
+  const supabase = getSupabaseClient();
+  const [candidate, setCandidate] = useState<MeetCandidate | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<MeetMessage[]>([]);
+  const [mediaRequests, setMediaRequests] = useState<MeetMediaRequest[]>([]);
+  const [draft, setDraft] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [searched, setSearched] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [decision, setDecision] = useState<"CONNECT" | "NEXT" | null>(null);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [online, setOnline] = useState(true);
+  const [mutual, setMutual] = useState<{
+    connectionId: string;
+    conversationId: string | null;
+  } | null>(null);
+  const [isPro, setIsPro] = useState(false);
+  const [skippedCandidateIds, setSkippedCandidateIds] = useState<string[]>([]);
+  const media = useMeetMedia({
+    supabase,
+    sessionId,
+    userId,
+    peerId: candidate?.id ?? null,
+    onError,
+    onNotice,
+  });
+  const prompts = [
+    "What are you building right now?",
+    "What are you learning lately?",
+    "What kind of collaboration would help most?",
+  ];
+  const hydrate = useCallback(
+    async (id: string) => {
+      const [history, requests] = await Promise.all([
+        supabase
+          .from("cf_meet_messages")
+          .select("*")
+          .eq("meet_session_id", id)
+          .order("created_at"),
+        supabase
+          .from("cf_meet_media_requests")
+          .select("*")
+          .eq("meet_session_id", id)
+          .order("created_at", { ascending: false }),
+      ]);
+      if (history.error) onError(history.error.message);
+      else setMessages((history.data as MeetMessage[]) ?? []);
+      if (requests.error) onError(requests.error.message);
+      else setMediaRequests((requests.data as MeetMediaRequest[]) ?? []);
+    },
+    [onError, supabase],
+  );
+  const discover = useCallback(
+    async (skipCurrent = false) => {
+      const exclusions =
+        skipCurrent && candidate
+          ? Array.from(new Set([...skippedCandidateIds, candidate.id]))
+          : skippedCandidateIds;
+      if (skipCurrent && candidate) setSkippedCandidateIds(exclusions);
+      media.stop();
+      setLoading(true);
+      setSearched(true);
+      setCandidate(null);
+      setSessionId(null);
+      setMessages([]);
+      setMediaRequests([]);
+      setDecision(null);
+      onError("");
+      const { data, error } = await supabase.rpc("cf_meet_candidate_preview", {
+        excluded_candidate_ids: exclusions,
+      });
+      setLoading(false);
+      if (error) {
+        // A deployed database that has not yet received migration 008 can still
+        // rotate candidates safely through the existing eligibility function.
+        if (
+          error.message.includes("cf_meet_candidate_preview") &&
+          error.message.includes("schema cache")
+        ) {
+          const fallback = await supabase.rpc("cf_discover_profiles", {
+            result_limit: 24,
+          });
+          if (fallback.error) {
+            onError(fallback.error.message);
+            return;
+          }
+          const next =
+            ((fallback.data as MeetCandidate[]) ?? []).find(
+              (person) => !exclusions.includes(person.id),
+            ) ?? null;
+          setCandidate(
+            next
+              ? {
+                  ...next,
+                  match_reasons: [
+                    next.match_reason ||
+                      "Relevant to your current builder context",
+                  ],
+                }
+              : null,
+          );
+          return;
+        }
+        onError(error.message);
         return;
       }
-      onError(error.message); return;
+      setCandidate(((data as MeetCandidate[]) ?? [])[0] ?? null);
+    },
+    [candidate, media, onError, skippedCandidateIds, supabase],
+  );
+  const restore = useCallback(async () => {
+    setLoading(true);
+    const { data, error } = await supabase.rpc("cf_get_active_meet");
+    if (error) {
+      setLoading(false);
+      onError(error.message);
+      return;
     }
-    setCandidate(((data as MeetCandidate[]) ?? [])[0] ?? null);
-  }, [candidate, media, onError, skippedCandidateIds, supabase]);
-  const restore = useCallback(async () => { setLoading(true); const { data, error } = await supabase.rpc("cf_get_active_meet"); if (error) { setLoading(false); onError(error.message); return; } const active = ((data as Array<MeetCandidate & { session_id: string; candidate_id: string; my_decision: "CONNECT" | "NEXT" | null }>) ?? [])[0]; if (active) { setCandidate({ ...active, id: active.candidate_id, match_reasons: ["Your Meet is still active. Continue when you are ready."] }); setSessionId(active.session_id); setDecision(active.my_decision); await hydrate(active.session_id); } setLoading(false); }, [hydrate, onError, supabase]);
-  useEffect(() => { void restore(); }, [restore]);
-  useEffect(() => { const goOnline = () => setOnline(true); const goOffline = () => setOnline(false); setOnline(navigator.onLine); window.addEventListener("online", goOnline); window.addEventListener("offline", goOffline); return () => { window.removeEventListener("online", goOnline); window.removeEventListener("offline", goOffline); }; }, []);
-  useEffect(() => { if (!sessionId) { setIsPro(false); return; } void supabase.from("cf_entitlements").select("plan,status,expires_at").eq("profile_id", userId).maybeSingle().then(({ data }) => setIsPro(Boolean(data && data.plan === "PRO" && data.status === "ACTIVE" && (!data.expires_at || new Date(data.expires_at) > new Date())))); }, [sessionId, supabase, userId]);
-  useEffect(() => { if (!sessionId) return; const accepted = mediaRequests.some((request) => request.status === "ACCEPTED" && request.media_type !== "SCREEN"); if (accepted) void media.activate(); }, [media, mediaRequests, sessionId]);
-  const start = async () => { if (!candidate) return; setLoading(true); const { data, error } = await supabase.rpc("cf_open_meet", { candidate_id: candidate.id }); setLoading(false); if (error) { onError(error.message); return; } const id = data as string; setSessionId(id); await hydrate(id); };
-  const showMutual = useCallback(async (connectionId: string) => { const { data } = await supabase.from("cf_conversations").select("id").eq("connection_id", connectionId).maybeSingle(); setMutual({ connectionId, conversationId: data?.id ?? null }); setSessionId(null); setDecision(null); }, [supabase]);
-  useEffect(() => { if (!sessionId) return; const channel = supabase.channel(`meet:${sessionId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "cf_meet_messages", filter: `meet_session_id=eq.${sessionId}` }, (payload) => setMessages((current) => current.some((message) => message.id === (payload.new as MeetMessage).id) ? current : [...current, payload.new as MeetMessage])).on("postgres_changes", { event: "*", schema: "public", table: "cf_meet_media_requests", filter: `meet_session_id=eq.${sessionId}` }, () => void hydrate(sessionId)).on("postgres_changes", { event: "UPDATE", schema: "public", table: "cf_meet_sessions", filter: `id=eq.${sessionId}` }, (payload) => { const row = payload.new as { status: string; connection_id?: string | null }; if (row.status === "SAFETY_CLOSED") { media.stop(); setSessionId(null); setCandidate(null); onNotice("This Meet has ended."); } else if (row.status === "CLOSED" && row.connection_id) { media.stop(); onNotice("It’s mutual — your private connection is now open."); void showMutual(row.connection_id); } else if (row.status === "CLOSED") { media.stop(); setSessionId(null); setCandidate(null); onNotice("This connection request was not mutual. Finding someone new."); void discover(); } }).subscribe(); return () => { void supabase.removeChannel(channel); }; }, [discover, hydrate, media, onNotice, sessionId, showMutual, supabase]);
-  const send = async (event: FormEvent) => { event.preventDefault(); if (!sessionId || !draft.trim() || sending) return; const body = draft.trim(); setDraft(""); setSending(true); const { data, error } = await supabase.rpc("cf_send_meet_message", { requested_session_id: sessionId, requested_body: body, requested_client_message_id: crypto.randomUUID() }); setSending(false); if (error) { setDraft(body); onError(error.message); return; } const message = data as MeetMessage; setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, message]); };
-  const choose = async (next: "CONNECT" | "NEXT") => { if (!sessionId) return; setDecision(next); const { data, error } = await supabase.rpc("cf_record_meet_decision", { session_id: sessionId, choice: next }); if (error) { setDecision(null); onError(error.message); return; } const response = Array.isArray(data) ? data[0] : null; if (response?.status === "MUTUAL_CONNECTION" && response.connection_id) { media.stop(); onNotice("It’s mutual — your private connection is now open."); await showMutual(response.connection_id); onConnected(); return; } if (next === "NEXT" || response?.status === "CLOSED") { media.stop(); setSessionId(null); setCandidate(null); onNotice("This connection request was not mutual. Finding someone new."); void discover(); return; } onNotice("Connection request sent privately. It only exists if they choose Connect too."); };
-  const end = async () => { if (!sessionId) return; const { error } = await supabase.rpc("cf_end_meet", { requested_session_id: sessionId }); if (error) { onError(error.message); return; } media.stop(); setSessionId(null); setCandidate(null); setDecision(null); onNotice("Meet ended. No contact information was shared."); };
-  const requestMedia = async (type: MeetMediaKind) => { if (!sessionId) return; try { if (type !== "SCREEN") await media.prepare(type); const { error } = await supabase.rpc("cf_request_meet_media", { requested_session_id: sessionId, requested_type: type }); if (error) throw error; onNotice(`${type === "SCREEN" ? "Screen share" : type === "AUDIO" ? "Audio" : "Video"} request sent. They choose privately.`); } catch (error) { onError(error instanceof Error ? error.message : "Could not send the media request."); } };
-  const resolveMedia = async (request: MeetMediaRequest, nextStatus: "ACCEPTED" | "DECLINED") => { try { if (nextStatus === "ACCEPTED" && request.media_type !== "SCREEN") await media.prepare(request.media_type); const { error } = await supabase.rpc("cf_respond_meet_media", { request_id: request.id, requested_status: nextStatus }); if (error) throw error; if (nextStatus === "ACCEPTED" && request.media_type === "SCREEN") await media.activate(); onNotice(nextStatus === "ACCEPTED" ? `${request.media_type === "SCREEN" ? "Screen share" : request.media_type === "AUDIO" ? "Audio" : "Video"} approved. Establishing the encrypted call.` : "Request declined. Text continues normally."); } catch (error) { onError(error instanceof Error ? error.message : "Could not update the media request."); } };
-  const startScreen = async () => { if (!sessionId) return; try { const { data, error } = await supabase.rpc("cf_can_share_meet_screen", { requested_session_id: sessionId }); if (error) throw error; if (!data) throw new Error("Screen sharing is available to active Pro members only."); await media.startScreen(); onNotice("Screen share is live. You can stop it from your browser controls."); } catch (error) { onError(error instanceof Error ? error.message : "Could not start screen sharing."); } };
-  const pendingForMe = mediaRequests.find((request) => request.target_id === userId && request.status === "PENDING");
-  const pendingMine = mediaRequests.find((request) => request.requester_id === userId && request.status === "PENDING");
-  const screenAcceptedForMe = mediaRequests.some((request) => request.requester_id === userId && request.media_type === "SCREEN" && request.status === "ACCEPTED");
-  if (mutual) return <section className="cf-mutual-meet"><div><span className="cf-mutual-mark"><Check size={26} /></span><h1>You both chose<br />to connect.</h1><p>Your private connection is ready. You can continue the conversation, revisit their profile, or start a Build Room when the work calls for it.</p></div><div className="cf-mutual-actions">{mutual.conversationId && <button className="cf-primary" onClick={() => router.push(`/chat/${mutual.conversationId}`)}>Open private chat <ArrowRight size={16} /></button>}<button className="cf-secondary" onClick={() => router.push(`/connections/${mutual.connectionId}`)}>View connection</button><button className="cf-secondary" onClick={() => router.push("/buildroom/new")}>Start a Build Room</button></div></section>;
-  if (loading && !candidate) return <section className="cf-hero cf-meet-loading"><div><h1>Preparing your next introduction.</h1><p>Checking for an active Meet and refreshing your private candidate queue.</p></div><span className="cf-pulse" /></section>;
-  if (!candidate && searched) return <section className="cf-hero"><div><h1>No new builder<br />right now.</h1><p>You have reached the current end of your eligible introductions. Update your profile signal or return later when the queue refreshes.</p><button className="cf-primary" onClick={() => void discover()} disabled={loading}>Try again <RefreshCw size={17} /></button></div><aside className="cf-hero-note"><Sparkles size={21} /><strong>Your queue stays finite</strong><p>CONFLUX does not recycle people you have already met or make a feed out of discovery.</p></aside></section>;
-  if (!candidate) return <section className="cf-hero"><div><h1>One person.<br />One real reason.</h1><p>Meet uses your intent and current work to make one meaningful introduction at a time. There is no countdown and no endless feed.</p><button className="cf-primary" onClick={() => void discover()} disabled={loading}>{loading ? "Finding a fit…" : "Find a builder"}<Zap size={17} /></button></div><aside className="cf-hero-note"><Sparkles size={21} /><strong>Text is always on</strong><p>Audio can start when you allow microphone access. Video requires explicit consent. Screen sharing is available for Pro participants. Direct contact unlocks after a mutual Connect.</p></aside></section>;
-  if (!sessionId) return <section className="cf-meet"><div className="cf-section-heading"><button className="cf-back" onClick={() => setCandidate(null)}>← Back</button></div><CandidateCard candidate={candidate} /><div className="cf-meet-actions"><button className="cf-secondary" onClick={() => void discover(true)} disabled={loading}><RefreshCw size={17} />Someone else</button><button className="cf-primary" onClick={() => void start()} disabled={loading}>Start a Meet<ArrowRight size={17} /></button></div><p className="cf-footnote">Someone else keeps the same relevance rules and skips this introduction. Your links stay private until you both choose Connect.</p></section>;
-  return <section className="cf-live-meet meet-v3"><header><div><CandidateCard candidate={candidate} compact /></div><span className="cf-live"><i />Live · no timer</span></header>{!online && <div className="cf-meet-network"><WifiOff size={16} />You are offline. Keep your draft here; actions will need a connection.</div>}{pendingForMe && <div className="cf-media-request"><div><strong>{pendingForMe.media_type === "SCREEN" ? "Screen share" : pendingForMe.media_type === "AUDIO" ? "Audio" : "Video"} request</strong><p>{pendingForMe.media_type === "SCREEN" ? "Only an active Pro member can share. Your approval is required." : "Your choice is private. Text remains available either way."}</p></div><button className="cf-secondary" onClick={() => void resolveMedia(pendingForMe, "DECLINED")}>Decline</button><button className="cf-primary" onClick={() => void resolveMedia(pendingForMe, "ACCEPTED")}>Accept</button></div>}{screenAcceptedForMe && !media.hasScreen && <div className="cf-media-request"><div><strong>Screen share approved</strong><p>Choose the tab or window you want to share. You can stop at any time.</p></div><button className="cf-primary" onClick={() => void startScreen()}>Start sharing</button></div>}<div className="cf-meet-stage"><div className="cf-media-tile"><video ref={media.remoteVideoRef} autoPlay playsInline className={media.remoteActive ? "visible" : ""} /><span className="cf-avatar">{initials(candidate.full_name)}</span><strong>{candidate.full_name}</strong><small>{media.remoteActive ? "Live media connected" : "Audio and video begin with consent"}</small></div><i><MessageCircle size={18} /></i><div className="cf-media-tile"><video ref={media.localVideoRef} autoPlay muted playsInline className={media.hasVideo || media.hasScreen ? "visible" : ""} /><span className="cf-avatar">You</span><strong>You</strong><small>{media.status === "connected" ? "Secure call active" : "Text-first Meet"}</small></div><audio ref={media.remoteAudioRef} autoPlay /><p>{media.status === "connected" ? "Encrypted WebRTC call connected." : media.status === "connecting" ? "Connecting your encrypted call…" : media.relayReady ? "Private signaling and a relay are ready when you both consent." : "Text is live. Audio and video use encrypted WebRTC when you both consent."}</p></div><div className="cf-meet-prompt"><span>Need an opening?</span>{prompts.map((prompt) => <button key={prompt} onClick={() => setDraft(prompt)}>{prompt}</button>)}</div><div className="cf-chat" aria-live="polite">{messages.length ? messages.map((message) => <p className={message.sender_id === userId ? "mine" : "theirs"} key={message.id}>{message.body}</p>) : <div className="cf-empty-small"><MessageCircle size={22} />Say hello, or use a prompt. This conversation is yours to take at a human pace.</div>}</div><form className="cf-compose" onSubmit={send}><input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={2000} disabled={!online || sending} placeholder="Write a thoughtful first message" /><button aria-label="Send message" disabled={!online || sending}>{sending ? <RefreshCw size={18} /> : <Send size={18} />}</button></form><div className="cf-media-controls"><button disabled={!media.hasAudio} onClick={media.toggleMute} title={media.hasAudio ? "Mute your microphone" : "Request audio first"}><Mic size={16} />{media.hasAudio ? "Mute" : "Mic off"}</button><button disabled={Boolean(pendingMine) || media.hasAudio} onClick={() => void requestMedia("AUDIO")}><Mic size={16} />{pendingMine?.media_type === "AUDIO" ? "Audio requested" : "Request audio"}</button><button disabled={!media.hasVideo} onClick={media.toggleCamera} title={media.hasVideo ? "Turn your camera off" : "Request video first"}><Video size={16} />{media.hasVideo ? "Camera" : "Camera off"}</button><button disabled={Boolean(pendingMine) || media.hasVideo} onClick={() => void requestMedia("VIDEO")}><Video size={16} />{pendingMine?.media_type === "VIDEO" ? "Video requested" : "Request video"}</button><button disabled={!isPro || Boolean(pendingMine) || media.hasScreen || screenAcceptedForMe} onClick={() => void requestMedia("SCREEN")} title={isPro ? "Ask to share your screen" : "Screen sharing is for active Pro members"}><MonitorUp size={16} />{media.hasScreen ? "Sharing" : "Pro share"}</button><small>{isPro ? "Audio and video require consent from both sides. Screen sharing also requires their approval." : "Audio and video require consent from both sides. Screen sharing is available to active Pro members."}</small></div>{safetyOpen && <SafetyActions sessionId={sessionId} subjectId={candidate.id} onClose={() => setSafetyOpen(false)} onNotice={onNotice} onError={onError} onBlocked={() => { media.stop(); setSessionId(null); setCandidate(null); }} />}<footer><button className="cf-quiet" onClick={() => setSafetyOpen(true)}>Safety</button><button className="cf-quiet" onClick={() => void end()}>End Meet</button><span /><button className={decision === "NEXT" ? "chosen next" : "cf-secondary"} onClick={() => void choose("NEXT")} disabled={Boolean(decision)}>Next</button><button className={decision === "CONNECT" ? "chosen connect" : "cf-primary"} onClick={() => void choose("CONNECT")} disabled={Boolean(decision)}>{decision === "CONNECT" ? "Requested privately" : "Connect privately"} <ArrowRight size={16} /></button></footer></section>;
+    const active = ((data as Array<
+      MeetCandidate & {
+        session_id: string;
+        candidate_id: string;
+        my_decision: "CONNECT" | "NEXT" | null;
+      }
+    >) ?? [])[0];
+    if (active) {
+      setCandidate({
+        ...active,
+        id: active.candidate_id,
+        match_reasons: [
+          "Your Meet is still active. Continue when you are ready.",
+        ],
+      });
+      setSessionId(active.session_id);
+      setDecision(active.my_decision);
+      await hydrate(active.session_id);
+    }
+    setLoading(false);
+  }, [hydrate, onError, supabase]);
+  useEffect(() => {
+    void restore();
+  }, [restore]);
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    setOnline(navigator.onLine);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
+  useEffect(() => {
+    if (!sessionId) {
+      setIsPro(false);
+      return;
+    }
+    void supabase
+      .from("cf_entitlements")
+      .select("plan,status,expires_at")
+      .eq("profile_id", userId)
+      .maybeSingle()
+      .then(({ data }) =>
+        setIsPro(
+          Boolean(
+            data &&
+            data.plan === "PRO" &&
+            data.status === "ACTIVE" &&
+            (!data.expires_at || new Date(data.expires_at) > new Date()),
+          ),
+        ),
+      );
+  }, [sessionId, supabase, userId]);
+  useEffect(() => {
+    if (!sessionId) return;
+    const accepted = mediaRequests.some(
+      (request) =>
+        request.status === "ACCEPTED" && request.media_type !== "SCREEN",
+    );
+    if (accepted) void media.activate();
+  }, [media, mediaRequests, sessionId]);
+  const start = async () => {
+    if (!candidate) return;
+    setLoading(true);
+    const { data, error } = await supabase.rpc("cf_open_meet", {
+      candidate_id: candidate.id,
+    });
+    setLoading(false);
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    const id = data as string;
+    setSessionId(id);
+    await hydrate(id);
+  };
+  const showMutual = useCallback(
+    async (connectionId: string) => {
+      const { data } = await supabase
+        .from("cf_conversations")
+        .select("id")
+        .eq("connection_id", connectionId)
+        .maybeSingle();
+      setMutual({ connectionId, conversationId: data?.id ?? null });
+      setSessionId(null);
+      setDecision(null);
+    },
+    [supabase],
+  );
+  useEffect(() => {
+    if (!sessionId) return;
+    const channel = supabase
+      .channel(`meet:${sessionId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "cf_meet_messages",
+          filter: `meet_session_id=eq.${sessionId}`,
+        },
+        (payload) =>
+          setMessages((current) =>
+            current.some(
+              (message) => message.id === (payload.new as MeetMessage).id,
+            )
+              ? current
+              : [...current, payload.new as MeetMessage],
+          ),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "cf_meet_media_requests",
+          filter: `meet_session_id=eq.${sessionId}`,
+        },
+        () => void hydrate(sessionId),
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "cf_meet_sessions",
+          filter: `id=eq.${sessionId}`,
+        },
+        (payload) => {
+          const row = payload.new as {
+            status: string;
+            connection_id?: string | null;
+          };
+          if (row.status === "SAFETY_CLOSED") {
+            media.stop();
+            setSessionId(null);
+            setCandidate(null);
+            onNotice("This Meet has ended.");
+          } else if (row.status === "CLOSED" && row.connection_id) {
+            media.stop();
+            onNotice("It’s mutual — your private connection is now open.");
+            void showMutual(row.connection_id);
+          } else if (row.status === "CLOSED") {
+            media.stop();
+            setSessionId(null);
+            setCandidate(null);
+            onNotice(
+              "This connection request was not mutual. Finding someone new.",
+            );
+            void discover();
+          }
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [discover, hydrate, media, onNotice, sessionId, showMutual, supabase]);
+  const send = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!sessionId || !draft.trim() || sending) return;
+    const body = draft.trim();
+    setDraft("");
+    setSending(true);
+    const { data, error } = await supabase.rpc("cf_send_meet_message", {
+      requested_session_id: sessionId,
+      requested_body: body,
+      requested_client_message_id: crypto.randomUUID(),
+    });
+    setSending(false);
+    if (error) {
+      setDraft(body);
+      onError(error.message);
+      return;
+    }
+    const message = data as MeetMessage;
+    setMessages((current) =>
+      current.some((item) => item.id === message.id)
+        ? current
+        : [...current, message],
+    );
+  };
+  const choose = async (next: "CONNECT" | "NEXT") => {
+    if (!sessionId) return;
+    setDecision(next);
+    const { data, error } = await supabase.rpc("cf_record_meet_decision", {
+      session_id: sessionId,
+      choice: next,
+    });
+    if (error) {
+      setDecision(null);
+      onError(error.message);
+      return;
+    }
+    const response = Array.isArray(data) ? data[0] : null;
+    if (response?.status === "MUTUAL_CONNECTION" && response.connection_id) {
+      media.stop();
+      onNotice("It’s mutual — your private connection is now open.");
+      await showMutual(response.connection_id);
+      onConnected();
+      return;
+    }
+    if (next === "NEXT" || response?.status === "CLOSED") {
+      media.stop();
+      setSessionId(null);
+      setCandidate(null);
+      onNotice("This connection request was not mutual. Finding someone new.");
+      void discover();
+      return;
+    }
+    onNotice(
+      "Connection request sent privately. It only exists if they choose Connect too.",
+    );
+  };
+  const end = async () => {
+    if (!sessionId) return;
+    const { error } = await supabase.rpc("cf_end_meet", {
+      requested_session_id: sessionId,
+    });
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    media.stop();
+    setSessionId(null);
+    setCandidate(null);
+    setDecision(null);
+    onNotice("Meet ended. No contact information was shared.");
+  };
+  const requestMedia = async (type: MeetMediaKind) => {
+    if (!sessionId) return;
+    try {
+      if (type !== "SCREEN") await media.prepare(type);
+      const { error } = await supabase.rpc("cf_request_meet_media", {
+        requested_session_id: sessionId,
+        requested_type: type,
+      });
+      if (error) throw error;
+      onNotice(
+        `${type === "SCREEN" ? "Screen share" : type === "AUDIO" ? "Audio" : "Video"} request sent. They choose privately.`,
+      );
+    } catch (error) {
+      onError(
+        error instanceof Error
+          ? error.message
+          : "Could not send the media request.",
+      );
+    }
+  };
+  const resolveMedia = async (
+    request: MeetMediaRequest,
+    nextStatus: "ACCEPTED" | "DECLINED",
+  ) => {
+    try {
+      if (nextStatus === "ACCEPTED" && request.media_type !== "SCREEN")
+        await media.prepare(request.media_type);
+      const { error } = await supabase.rpc("cf_respond_meet_media", {
+        request_id: request.id,
+        requested_status: nextStatus,
+      });
+      if (error) throw error;
+      if (nextStatus === "ACCEPTED" && request.media_type === "SCREEN")
+        await media.activate();
+      onNotice(
+        nextStatus === "ACCEPTED"
+          ? `${request.media_type === "SCREEN" ? "Screen share" : request.media_type === "AUDIO" ? "Audio" : "Video"} approved. Establishing the encrypted call.`
+          : "Request declined. Text continues normally.",
+      );
+    } catch (error) {
+      onError(
+        error instanceof Error
+          ? error.message
+          : "Could not update the media request.",
+      );
+    }
+  };
+  const startScreen = async () => {
+    if (!sessionId) return;
+    try {
+      const { data, error } = await supabase.rpc("cf_can_share_meet_screen", {
+        requested_session_id: sessionId,
+      });
+      if (error) throw error;
+      if (!data)
+        throw new Error(
+          "Screen sharing is available to active Pro members only.",
+        );
+      await media.startScreen();
+      onNotice(
+        "Screen share is live. You can stop it from your browser controls.",
+      );
+    } catch (error) {
+      onError(
+        error instanceof Error
+          ? error.message
+          : "Could not start screen sharing.",
+      );
+    }
+  };
+  const pendingForMe = mediaRequests.find(
+    (request) => request.target_id === userId && request.status === "PENDING",
+  );
+  const pendingMine = mediaRequests.find(
+    (request) =>
+      request.requester_id === userId && request.status === "PENDING",
+  );
+  const screenAcceptedForMe = mediaRequests.some(
+    (request) =>
+      request.requester_id === userId &&
+      request.media_type === "SCREEN" &&
+      request.status === "ACCEPTED",
+  );
+  if (mutual)
+    return (
+      <section className="cf-mutual-meet">
+        <div>
+          <span className="cf-mutual-mark">
+            <Check size={26} />
+          </span>
+          <h1>
+            You both chose
+            <br />
+            to connect.
+          </h1>
+          <p>
+            Your private connection is ready. You can continue the conversation,
+            revisit their profile, or start a Build Room when the work calls for
+            it.
+          </p>
+        </div>
+        <div className="cf-mutual-actions">
+          {mutual.conversationId && (
+            <button
+              className="cf-primary"
+              onClick={() => router.push(`/chat/${mutual.conversationId}`)}
+            >
+              Open private chat <ArrowRight size={16} />
+            </button>
+          )}
+          <button
+            className="cf-secondary"
+            onClick={() => router.push(`/connections/${mutual.connectionId}`)}
+          >
+            View connection
+          </button>
+          <button
+            className="cf-secondary"
+            onClick={() => router.push("/buildroom/new")}
+          >
+            Start a Build Room
+          </button>
+        </div>
+      </section>
+    );
+  if (loading && !candidate)
+    return (
+      <section className="cf-hero cf-meet-loading">
+        <div>
+          <h1>Preparing your next introduction.</h1>
+          <p>
+            Checking for an active Meet and refreshing your private candidate
+            queue.
+          </p>
+        </div>
+        <span className="cf-pulse" />
+      </section>
+    );
+  if (!candidate && searched)
+    return (
+      <section className="cf-hero">
+        <div>
+          <h1>
+            No new builder
+            <br />
+            right now.
+          </h1>
+          <p>
+            You have reached the current end of your eligible introductions.
+            Update your profile signal or return later when the queue refreshes.
+          </p>
+          <button
+            className="cf-primary"
+            onClick={() => void discover()}
+            disabled={loading}
+          >
+            Try again <RefreshCw size={17} />
+          </button>
+        </div>
+        <aside className="cf-hero-note">
+          <Sparkles size={21} />
+          <strong>Your queue stays finite</strong>
+          <p>
+            CONFLUX does not recycle people you have already met or make a feed
+            out of discovery.
+          </p>
+        </aside>
+      </section>
+    );
+  if (!candidate)
+    return (
+      <section className="cf-hero">
+        <div>
+          <h1>
+            One person.
+            <br />
+            One real reason.
+          </h1>
+          <p>
+            Meet uses your intent and current work to make one meaningful
+            introduction at a time. There is no countdown and no endless feed.
+          </p>
+          <button
+            className="cf-primary"
+            onClick={() => void discover()}
+            disabled={loading}
+          >
+            {loading ? "Finding a fit…" : "Find a builder"}
+            <Zap size={17} />
+          </button>
+        </div>
+        <aside className="cf-hero-note">
+          <Sparkles size={21} />
+          <strong>Text is always on</strong>
+          <p>
+            Audio can start when you allow microphone access. Video requires
+            explicit consent. Screen sharing is available for Pro participants.
+            Direct contact unlocks after a mutual Connect.
+          </p>
+        </aside>
+      </section>
+    );
+  if (!sessionId)
+    return (
+      <section className="cf-meet">
+        <div className="cf-section-heading">
+          <button className="cf-back" onClick={() => setCandidate(null)}>
+            ← Back
+          </button>
+        </div>
+        <CandidateCard candidate={candidate} />
+        <div className="cf-meet-actions">
+          <button
+            className="cf-secondary"
+            onClick={() => void discover(true)}
+            disabled={loading}
+          >
+            <RefreshCw size={17} />
+            Someone else
+          </button>
+          <button
+            className="cf-primary"
+            onClick={() => void start()}
+            disabled={loading}
+          >
+            Start a Meet
+            <ArrowRight size={17} />
+          </button>
+        </div>
+        <p className="cf-footnote">
+          Someone else keeps the same relevance rules and skips this
+          introduction. Your links stay private until you both choose Connect.
+        </p>
+      </section>
+    );
+  return (
+    <section className="cf-live-meet meet-v3">
+      <header>
+        <div>
+          <CandidateCard candidate={candidate} compact />
+        </div>
+        <span className="cf-live">
+          <i />
+          Live · no timer
+        </span>
+      </header>
+      {!online && (
+        <div className="cf-meet-network">
+          <WifiOff size={16} />
+          You are offline. Keep your draft here; actions will need a connection.
+        </div>
+      )}
+      {pendingForMe && (
+        <div className="cf-media-request">
+          <div>
+            <strong>
+              {pendingForMe.media_type === "SCREEN"
+                ? "Screen share"
+                : pendingForMe.media_type === "AUDIO"
+                  ? "Audio"
+                  : "Video"}{" "}
+              request
+            </strong>
+            <p>
+              {pendingForMe.media_type === "SCREEN"
+                ? "Only an active Pro member can share. Your approval is required."
+                : "Your choice is private. Text remains available either way."}
+            </p>
+          </div>
+          <button
+            className="cf-secondary"
+            onClick={() => void resolveMedia(pendingForMe, "DECLINED")}
+          >
+            Decline
+          </button>
+          <button
+            className="cf-primary"
+            onClick={() => void resolveMedia(pendingForMe, "ACCEPTED")}
+          >
+            Accept
+          </button>
+        </div>
+      )}
+      {screenAcceptedForMe && !media.hasScreen && (
+        <div className="cf-media-request">
+          <div>
+            <strong>Screen share approved</strong>
+            <p>
+              Choose the tab or window you want to share. You can stop at any
+              time.
+            </p>
+          </div>
+          <button className="cf-primary" onClick={() => void startScreen()}>
+            Start sharing
+          </button>
+        </div>
+      )}
+      <div className="cf-meet-stage">
+        <div className="cf-media-tile">
+          <video
+            ref={media.remoteVideoRef}
+            autoPlay
+            playsInline
+            className={media.remoteActive ? "visible" : ""}
+          />
+          <span className="cf-avatar">{initials(candidate.full_name)}</span>
+          <strong>{candidate.full_name}</strong>
+          <small>
+            {media.remoteActive
+              ? "Live media connected"
+              : "Audio and video begin with consent"}
+          </small>
+        </div>
+        <i>
+          <MessageCircle size={18} />
+        </i>
+        <div className="cf-media-tile">
+          <video
+            ref={media.localVideoRef}
+            autoPlay
+            muted
+            playsInline
+            className={media.hasVideo || media.hasScreen ? "visible" : ""}
+          />
+          <span className="cf-avatar">You</span>
+          <strong>You</strong>
+          <small>
+            {media.status === "connected"
+              ? "Secure call active"
+              : "Text-first Meet"}
+          </small>
+        </div>
+        <audio ref={media.remoteAudioRef} autoPlay />
+        <p>
+          {media.status === "connected"
+            ? "Encrypted WebRTC call connected."
+            : media.status === "connecting"
+              ? "Connecting your encrypted call…"
+              : media.relayReady
+                ? "Private signaling and a relay are ready when you both consent."
+                : "Text is live. Audio and video use encrypted WebRTC when you both consent."}
+        </p>
+      </div>
+      <div className="cf-meet-prompt">
+        <span>Need an opening?</span>
+        {prompts.map((prompt) => (
+          <button key={prompt} onClick={() => setDraft(prompt)}>
+            {prompt}
+          </button>
+        ))}
+      </div>
+      <div className="cf-chat" aria-live="polite">
+        {messages.length ? (
+          messages.map((message) => (
+            <p
+              className={message.sender_id === userId ? "mine" : "theirs"}
+              key={message.id}
+            >
+              {message.body}
+            </p>
+          ))
+        ) : (
+          <div className="cf-empty-small">
+            <MessageCircle size={22} />
+            Say hello, or use a prompt. This conversation is yours to take at a
+            human pace.
+          </div>
+        )}
+      </div>
+      <form className="cf-compose" onSubmit={send}>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          maxLength={2000}
+          disabled={!online || sending}
+          placeholder="Write a thoughtful first message"
+        />
+        <button aria-label="Send message" disabled={!online || sending}>
+          {sending ? <RefreshCw size={18} /> : <Send size={18} />}
+        </button>
+      </form>
+      <div className="cf-media-controls">
+        <button
+          disabled={!media.hasAudio}
+          onClick={media.toggleMute}
+          title={
+            media.hasAudio ? "Mute your microphone" : "Request audio first"
+          }
+        >
+          <Mic size={16} />
+          {media.hasAudio ? "Mute" : "Mic off"}
+        </button>
+        <button
+          disabled={Boolean(pendingMine) || media.hasAudio}
+          onClick={() => void requestMedia("AUDIO")}
+        >
+          <Mic size={16} />
+          {pendingMine?.media_type === "AUDIO"
+            ? "Audio requested"
+            : "Request audio"}
+        </button>
+        <button
+          disabled={!media.hasVideo}
+          onClick={media.toggleCamera}
+          title={
+            media.hasVideo ? "Turn your camera off" : "Request video first"
+          }
+        >
+          <Video size={16} />
+          {media.hasVideo ? "Camera" : "Camera off"}
+        </button>
+        <button
+          disabled={Boolean(pendingMine) || media.hasVideo}
+          onClick={() => void requestMedia("VIDEO")}
+        >
+          <Video size={16} />
+          {pendingMine?.media_type === "VIDEO"
+            ? "Video requested"
+            : "Request video"}
+        </button>
+        <button
+          disabled={
+            !isPro ||
+            Boolean(pendingMine) ||
+            media.hasScreen ||
+            screenAcceptedForMe
+          }
+          onClick={() => void requestMedia("SCREEN")}
+          title={
+            isPro
+              ? "Ask to share your screen"
+              : "Screen sharing is for active Pro members"
+          }
+        >
+          <MonitorUp size={16} />
+          {media.hasScreen ? "Sharing" : "Pro share"}
+        </button>
+        <small>
+          {isPro
+            ? "Audio and video require consent from both sides. Screen sharing also requires their approval."
+            : "Audio and video require consent from both sides. Screen sharing is available to active Pro members."}
+        </small>
+      </div>
+      {safetyOpen && (
+        <SafetyActions
+          sessionId={sessionId}
+          subjectId={candidate.id}
+          onClose={() => setSafetyOpen(false)}
+          onNotice={onNotice}
+          onError={onError}
+          onBlocked={() => {
+            media.stop();
+            setSessionId(null);
+            setCandidate(null);
+          }}
+        />
+      )}
+      <footer>
+        <button className="cf-quiet" onClick={() => setSafetyOpen(true)}>
+          Safety
+        </button>
+        <button className="cf-quiet" onClick={() => void end()}>
+          End Meet
+        </button>
+        <span />
+        <button
+          className={decision === "NEXT" ? "chosen next" : "cf-secondary"}
+          onClick={() => void choose("NEXT")}
+          disabled={Boolean(decision)}
+        >
+          Next
+        </button>
+        <button
+          className={decision === "CONNECT" ? "chosen connect" : "cf-primary"}
+          onClick={() => void choose("CONNECT")}
+          disabled={Boolean(decision)}
+        >
+          {decision === "CONNECT" ? "Requested privately" : "Connect privately"}{" "}
+          <ArrowRight size={16} />
+        </button>
+      </footer>
+    </section>
+  );
 }
 
-function SafetyActions({ sessionId, subjectId, onClose, onNotice, onError, onBlocked }: { sessionId: string; subjectId: string; onClose: () => void; onNotice: (message: string) => void; onError: (message: string) => void; onBlocked: () => void }) {
-  const supabase = getSupabaseClient(); const [reason, setReason] = useState("SAFETY"); const [detail, setDetail] = useState(""); const [working, setWorking] = useState(false);
-  const report = async () => { setWorking(true); const { data: { user } } = await supabase.auth.getUser(); if (!user) { setWorking(false); onError("Your session has expired."); return; } const { error } = await supabase.from("cf_reports").insert({ reporter_id: user.id, subject_id: subjectId, reason, detail: detail.trim() || null }); setWorking(false); if (error) { onError(error.message); return; } onClose(); onNotice("Report received privately. Thank you for helping keep CONFLUX safe."); };
-  const block = async () => { setWorking(true); const { error } = await supabase.rpc("cf_block_meet_participant", { requested_session_id: sessionId, requested_subject_id: subjectId }); setWorking(false); if (error) { onError(error.message); return; } onClose(); onBlocked(); onNotice("Blocked. This Meet is closed and they will not appear in future discovery."); };
-  return <div className="cf-safety"><header><strong>Your space, your call.</strong><button onClick={onClose} aria-label="Close safety actions"><X size={16} /></button></header><p>End a Meet, report, or block without sharing your choice with the other person.</p><label>Report reason<select value={reason} onChange={(event) => setReason(event.target.value)}><option value="SAFETY">Safety concern</option><option value="HARASSMENT">Harassment or hate</option><option value="SPAM">Spam or scam</option><option value="IMPERSONATION">Impersonation</option><option value="OTHER">Something else</option></select></label><textarea value={detail} onChange={(event) => setDetail(event.target.value)} placeholder="Optional details" maxLength={1200} /><div><button className="cf-secondary" onClick={() => void block()} disabled={working}>Block person</button><button className="cf-primary" onClick={() => void report()} disabled={working}>{working ? "Saving…" : "Send private report"}</button></div></div>;
+function SafetyActions({
+  sessionId,
+  subjectId,
+  onClose,
+  onNotice,
+  onError,
+  onBlocked,
+}: {
+  sessionId: string;
+  subjectId: string;
+  onClose: () => void;
+  onNotice: (message: string) => void;
+  onError: (message: string) => void;
+  onBlocked: () => void;
+}) {
+  const supabase = getSupabaseClient();
+  const [reason, setReason] = useState("SAFETY");
+  const [detail, setDetail] = useState("");
+  const [working, setWorking] = useState(false);
+  const report = async () => {
+    setWorking(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      setWorking(false);
+      onError("Your session has expired.");
+      return;
+    }
+    const { error } = await supabase.from("cf_reports").insert({
+      reporter_id: user.id,
+      subject_id: subjectId,
+      reason,
+      detail: detail.trim() || null,
+    });
+    setWorking(false);
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    onClose();
+    onNotice(
+      "Report received privately. Thank you for helping keep CONFLUX safe.",
+    );
+  };
+  const block = async () => {
+    setWorking(true);
+    const { error } = await supabase.rpc("cf_block_meet_participant", {
+      requested_session_id: sessionId,
+      requested_subject_id: subjectId,
+    });
+    setWorking(false);
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    onClose();
+    onBlocked();
+    onNotice(
+      "Blocked. This Meet is closed and they will not appear in future discovery.",
+    );
+  };
+  return (
+    <div className="cf-safety">
+      <header>
+        <strong>Your space, your call.</strong>
+        <button onClick={onClose} aria-label="Close safety actions">
+          <X size={16} />
+        </button>
+      </header>
+      <p>
+        End a Meet, report, or block without sharing your choice with the other
+        person.
+      </p>
+      <label>
+        Report reason
+        <select
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+        >
+          <option value="SAFETY">Safety concern</option>
+          <option value="HARASSMENT">Harassment or hate</option>
+          <option value="SPAM">Spam or scam</option>
+          <option value="IMPERSONATION">Impersonation</option>
+          <option value="OTHER">Something else</option>
+        </select>
+      </label>
+      <textarea
+        value={detail}
+        onChange={(event) => setDetail(event.target.value)}
+        placeholder="Optional details"
+        maxLength={1200}
+      />
+      <div>
+        <button
+          className="cf-secondary"
+          onClick={() => void block()}
+          disabled={working}
+        >
+          Block person
+        </button>
+        <button
+          className="cf-primary"
+          onClick={() => void report()}
+          disabled={working}
+        >
+          {working ? "Saving…" : "Send private report"}
+        </button>
+      </div>
+    </div>
+  );
 }
 
-function Connections({ userId, onError, onOpenBuild }: { userId: string; onError: (message: string) => void; onOpenBuild: () => void }) {
-  const supabase = getSupabaseClient(); const [connections, setConnections] = useState<Connection[]>([]); const [selected, setSelected] = useState<Connection | null>(null); const [messages, setMessages] = useState<Message[]>([]); const [draft, setDraft] = useState(""); const [sending, setSending] = useState(false);
-  const load = useCallback(async () => { const { data, error } = await supabase.from("cf_connections").select("*").or(`low_profile_id.eq.${userId},high_profile_id.eq.${userId}`).order("created_at", { ascending: false }); if (error) { onError(error.message); return; } const rows = (data as Connection[]) ?? []; const connectionIds = rows.map((row) => row.id); const otherIds = rows.map((row) => row.low_profile_id === userId ? row.high_profile_id : row.low_profile_id); const [{ data: people, error: peopleError }, { data: conversations, error: conversationError }] = await Promise.all([otherIds.length ? supabase.from("cf_profiles").select("*").in("id", otherIds) : Promise.resolve({ data: [], error: null }), connectionIds.length ? supabase.from("cf_conversations").select("id, connection_id").in("connection_id", connectionIds) : Promise.resolve({ data: [], error: null })]); if (peopleError) onError(peopleError.message); if (conversationError) onError(conversationError.message); const profiles = new Map(((people as Profile[]) ?? []).map((person) => [person.id, person])); const conversationsByConnection = new Map((((conversations as Array<{ id: string; connection_id: string }> | null) ?? []).map((conversation) => [conversation.connection_id, conversation.id]))); setConnections(rows.map((row) => ({ ...row, conversation_id: conversationsByConnection.get(row.id), other: profiles.get(row.low_profile_id === userId ? row.high_profile_id : row.low_profile_id) }))); }, [onError, supabase, userId]);
-  useEffect(() => { void load(); }, [load]);
-  useEffect(() => { if (!selected?.conversation_id) return; const conversationId = selected.conversation_id; void supabase.from("cf_messages").select("*").eq("conversation_id", conversationId).is("deleted_at", null).order("created_at").then(async ({ data, error }) => { if (error) onError(error.message); else { setMessages((data as Message[]) ?? []); const { error: readError } = await supabase.rpc("cf_mark_conversation_read", { requested_conversation_id: conversationId }); if (readError) onError(readError.message); } }); const channel = supabase.channel(`conversation:${conversationId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "cf_messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => setMessages((current) => current.some((message) => message.id === (payload.new as Message).id) ? current : [...current, payload.new as Message])).subscribe(); return () => { void supabase.removeChannel(channel); }; }, [onError, selected?.conversation_id, supabase]);
-  const send = async (event: FormEvent) => { event.preventDefault(); if (!selected?.conversation_id || !draft.trim() || sending) return; const body = draft.trim(); const clientMessageId = crypto.randomUUID(); setDraft(""); setSending(true); const { data, error } = await supabase.rpc("cf_send_message", { requested_conversation_id: selected.conversation_id, requested_body: body, requested_client_message_id: clientMessageId }); setSending(false); if (error) { setDraft(body); onError(error.message); return; } const message = data as Message; setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, message]); };
-  return <section className="cf-split"><div className="cf-list-pane"><p className="cf-kicker">Mutual, not accumulated</p><h1>Connections</h1>{connections.length ? <div className="cf-connection-list">{connections.map((connection) => <button key={connection.id} className={selected?.id === connection.id ? "active" : ""} onClick={() => setSelected(connection)}><span className="cf-avatar">{initials(connection.other?.full_name ?? "?")}</span><span><strong>{connection.other?.full_name ?? "Private connection"}</strong><small>Met {formatDate(connection.created_at)}</small></span></button>)}</div> : <Empty icon={<UsersRound size={25} />} title="No mutual connections yet" body="When both people choose Connect after a Meet, the conversation appears here." />}</div><div className="cf-thread">{selected ? <><header><span className="cf-avatar">{initials(selected.other?.full_name ?? "?")}</span><div><h2>{selected.other?.full_name}</h2><p>Mutual connection</p></div><button className="cf-quiet" onClick={onOpenBuild}><Wrench size={16} />Build together</button></header>{selected.conversation_id ? <><div className="cf-chat">{messages.length ? messages.map((message) => <p className={message.sender_id === userId ? "mine" : "theirs"} key={message.id}>{message.body}</p>) : <div className="cf-empty-small"><MessageCircle size={22} />This is a real, private thread. Start with what you want to move forward.</div>}</div><form className="cf-compose" onSubmit={send}><input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Message your connection" maxLength={4000} disabled={sending} /><button aria-label="Send message" disabled={sending}>{sending ? <RefreshCw size={18} /> : <Send size={18} />}</button></form></> : <div className="cf-thread-empty"><RefreshCw size={28} /><h2>Preparing your conversation</h2><p>Refresh this connection if its secure conversation is still being created.</p></div>}</> : <div className="cf-thread-empty"><MessageCircle size={31} /><h2>Choose a connection</h2><p>Only people who chose you back can start a thread.</p></div>}</div></section>;
-}
-
-function BuildRooms({ userId, onError, onNotice }: { userId: string; onError: (message: string) => void; onNotice: (message: string) => void }) {
+function Connections({
+  userId,
+  onError,
+  onOpenBuild,
+}: {
+  userId: string;
+  onError: (message: string) => void;
+  onOpenBuild: () => void;
+}) {
+  const supabase = getSupabaseClient();
   const router = useRouter();
-  const supabase = getSupabaseClient(); const [projects, setProjects] = useState<Project[]>([]); const [selected, setSelected] = useState<Project | null>(null); const [tasks, setTasks] = useState<ProjectTask[]>([]); const [creating, setCreating] = useState(false); const [name, setName] = useState(""); const [idea, setIdea] = useState(""); const [taskTitle, setTaskTitle] = useState("");
-  const load = useCallback(async () => { const { data, error } = await supabase.from("cf_projects").select("*").is("archived_at", null).order("updated_at", { ascending: false }); if (error) onError(error.message); else setProjects((data as Project[]) ?? []); }, [onError, supabase]);
-  useEffect(() => { void load(); }, [load]); useEffect(() => { if (!selected) return; void supabase.from("cf_project_tasks").select("*").eq("project_id", selected.id).order("created_at").then(({ data, error }) => { if (error) onError(error.message); else setTasks((data as ProjectTask[]) ?? []); }); }, [onError, selected, supabase]);
-  const create = async (event: FormEvent) => { event.preventDefault(); const { data, error } = await supabase.from("cf_projects").insert({ owner_id: userId, name: name.trim(), idea: idea.trim() }).select().single(); if (error) { onError(error.message); return; } setName(""); setIdea(""); setCreating(false); await load(); setSelected(data as Project); onNotice("Build Room created. Add one useful next step."); };
-  const addTask = async (event: FormEvent) => { event.preventDefault(); if (!selected || !taskTitle.trim()) return; const { error } = await supabase.from("cf_project_tasks").insert({ project_id: selected.id, title: taskTitle.trim() }); if (error) { onError(error.message); return; } setTaskTitle(""); const { data } = await supabase.from("cf_project_tasks").select("*").eq("project_id", selected.id).order("created_at"); setTasks((data as ProjectTask[]) ?? []); };
-  const toggleTask = async (task: ProjectTask) => { const status = task.status === "DONE" ? "TODO" : "DONE"; const { error } = await supabase.from("cf_project_tasks").update({ status }).eq("id", task.id); if (error) onError(error.message); else setTasks((current) => current.map((item) => item.id === task.id ? { ...item, status } : item)); };
-  return <section className="cf-builds"><header><div><p className="cf-kicker">A room for real work</p><h1>Build rooms</h1><p>Your basic room is yours to run. Invite collaborators through a mutual connection, then make progress visible.</p></div><button className="cf-primary" onClick={() => router.push("/buildroom/new")}><Plus size={17} />New room</button></header>{creating && <form className="cf-inline-form" onSubmit={create}><Field label="Room name"><input value={name} onChange={(e) => setName(e.target.value)} required maxLength={160} placeholder="What are you building?" /></Field><Field label="The idea"><input value={idea} onChange={(e) => setIdea(e.target.value)} required maxLength={280} placeholder="A concise problem or promise" /></Field><button className="cf-primary">Create</button><button type="button" className="cf-quiet" onClick={() => setCreating(false)}>Cancel</button></form>}<div className="cf-build-layout"><div className="cf-project-list">{projects.length ? projects.map((project) => <button key={project.id} className={selected?.id === project.id ? "active" : ""} onClick={() => setSelected(project)}><span>{project.stage}</span><strong>{project.name}</strong><small>{project.idea}</small></button>) : <Empty icon={<Wrench size={25} />} title="Nothing in progress yet" body="Start a room for a real idea, then add the next concrete task." />}</div><div className="cf-project-detail">{selected ? <><p className="cf-kicker">{selected.stage}</p><h2>{selected.name}</h2><p>{selected.idea}</p><button className="cf-secondary" onClick={() => router.push(`/buildroom/${selected.slug}`)}>Open full workspace <ArrowRight size={16} /></button><div className="cf-task-list">{tasks.length ? tasks.map((task) => <button onClick={() => void toggleTask(task)} key={task.id}><i className={task.status === "DONE" ? "done" : ""}>{task.status === "DONE" && <Check size={12} />}</i><span>{task.title}</span></button>) : <p className="cf-empty-copy">No tasks yet. A small, clear first task beats a long wishlist.</p>}</div><form className="cf-add-task" onSubmit={addTask}><input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} placeholder="Add the next step" maxLength={240} /><button aria-label="Add task"><Plus size={18} /></button></form></> : <div className="cf-thread-empty"><Wrench size={31} /><h2>Open a room</h2><p>Select a room to see its actual tasks.</p></div>}</div></div></section>;
+  const [connections, setConnections] = useState<Connection[]>([]);
+  const [selected, setSelected] = useState<Connection | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [requestingMeet, setRequestingMeet] = useState(false);
+  const load = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("cf_connections")
+      .select("*")
+      .or(`low_profile_id.eq.${userId},high_profile_id.eq.${userId}`)
+      .order("created_at", { ascending: false });
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    const rows = (data as Connection[]) ?? [];
+    const connectionIds = rows.map((row) => row.id);
+    const otherIds = rows.map((row) =>
+      row.low_profile_id === userId ? row.high_profile_id : row.low_profile_id,
+    );
+    const [
+      { data: people, error: peopleError },
+      { data: conversations, error: conversationError },
+    ] = await Promise.all([
+      otherIds.length
+        ? supabase.from("cf_profiles").select("*").in("id", otherIds)
+        : Promise.resolve({ data: [], error: null }),
+      connectionIds.length
+        ? supabase
+            .from("cf_conversations")
+            .select("id, connection_id")
+            .in("connection_id", connectionIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+    if (peopleError) onError(peopleError.message);
+    if (conversationError) onError(conversationError.message);
+    const profiles = new Map(
+      ((people as Profile[]) ?? []).map((person) => [person.id, person]),
+    );
+    const conversationsByConnection = new Map(
+      (
+        (conversations as Array<{
+          id: string;
+          connection_id: string;
+        }> | null) ?? []
+      ).map((conversation) => [conversation.connection_id, conversation.id]),
+    );
+    setConnections(
+      rows.map((row) => ({
+        ...row,
+        conversation_id: conversationsByConnection.get(row.id),
+        other: profiles.get(
+          row.low_profile_id === userId
+            ? row.high_profile_id
+            : row.low_profile_id,
+        ),
+      })),
+    );
+  }, [onError, supabase, userId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useEffect(() => {
+    if (!selected?.conversation_id) return;
+    const conversationId = selected.conversation_id;
+    void supabase
+      .from("cf_messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .is("deleted_at", null)
+      .order("created_at")
+      .then(async ({ data, error }) => {
+        if (error) onError(error.message);
+        else {
+          setMessages((data as Message[]) ?? []);
+          const { error: readError } = await supabase.rpc(
+            "cf_mark_conversation_read",
+            { requested_conversation_id: conversationId },
+          );
+          if (readError) onError(readError.message);
+        }
+      });
+    const channel = supabase
+      .channel(`conversation:${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "cf_messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) =>
+          setMessages((current) =>
+            current.some(
+              (message) => message.id === (payload.new as Message).id,
+            )
+              ? current
+              : [...current, payload.new as Message],
+          ),
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [onError, selected?.conversation_id, supabase]);
+  const send = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected?.conversation_id || !draft.trim() || sending) return;
+    const body = draft.trim();
+    const clientMessageId = crypto.randomUUID();
+    setDraft("");
+    setSending(true);
+    const { data, error } = await supabase.rpc("cf_send_message", {
+      requested_conversation_id: selected.conversation_id,
+      requested_body: body,
+      requested_client_message_id: clientMessageId,
+    });
+    setSending(false);
+    if (error) {
+      setDraft(body);
+      onError(error.message);
+      return;
+    }
+    const message = data as Message;
+    setMessages((current) =>
+      current.some((item) => item.id === message.id)
+        ? current
+        : [...current, message],
+    );
+  };
+  const meetAgain = async () => {
+    const otherId = selected
+      ? selected.low_profile_id === userId
+        ? selected.high_profile_id
+        : selected.low_profile_id
+      : null;
+    if (!otherId || requestingMeet) return;
+    setRequestingMeet(true);
+    const { error } = await supabase.rpc("cf_open_direct_meet", {
+      candidate_id: otherId,
+      requested_source: "CONNECTION",
+    });
+    setRequestingMeet(false);
+    if (error) {
+      onError(
+        error.message === "CANDIDATE_IN_MEET"
+          ? "They are currently in another Meet. Try again later."
+          : error.message,
+      );
+      return;
+    }
+    router.push("/meet");
+  };
+  return (
+    <section className="cf-split">
+      <div className="cf-list-pane">
+        <p className="cf-kicker">Mutual, not accumulated</p>
+        <h1>Connections</h1>
+        {connections.length ? (
+          <div className="cf-connection-list">
+            {connections.map((connection) => (
+              <button
+                key={connection.id}
+                className={selected?.id === connection.id ? "active" : ""}
+                onClick={() => setSelected(connection)}
+              >
+                <span className="cf-avatar">
+                  {initials(connection.other?.full_name ?? "?")}
+                </span>
+                <span>
+                  <strong>
+                    {connection.other?.full_name ?? "Private connection"}
+                  </strong>
+                  <small>Met {formatDate(connection.created_at)}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <Empty
+            icon={<UsersRound size={25} />}
+            title="No mutual connections yet"
+            body="When both people choose Connect after a Meet, the conversation appears here."
+          />
+        )}
+      </div>
+      <div className="cf-thread">
+        {selected ? (
+          <>
+            <header>
+              <span className="cf-avatar">
+                {initials(selected.other?.full_name ?? "?")}
+              </span>
+              <div>
+                <h2>{selected.other?.full_name}</h2>
+                <p>Mutual connection</p>
+              </div>
+              <button className="cf-quiet" onClick={onOpenBuild}>
+                <Wrench size={16} />
+                Build together
+              </button>
+              <button
+                className="cf-quiet"
+                onClick={() => void meetAgain()}
+                disabled={requestingMeet}
+              >
+                <Zap size={16} />
+                {requestingMeet ? "Sending…" : "Meet again"}
+              </button>
+            </header>
+            {selected.conversation_id ? (
+              <>
+                <div className="cf-chat">
+                  {messages.length ? (
+                    messages.map((message) => (
+                      <p
+                        className={
+                          message.sender_id === userId ? "mine" : "theirs"
+                        }
+                        key={message.id}
+                      >
+                        {message.body}
+                      </p>
+                    ))
+                  ) : (
+                    <div className="cf-empty-small">
+                      <MessageCircle size={22} />
+                      This is a real, private thread. Start with what you want
+                      to move forward.
+                    </div>
+                  )}
+                </div>
+                <form className="cf-compose" onSubmit={send}>
+                  <input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    placeholder="Message your connection"
+                    maxLength={4000}
+                    disabled={sending}
+                  />
+                  <button aria-label="Send message" disabled={sending}>
+                    {sending ? <RefreshCw size={18} /> : <Send size={18} />}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="cf-thread-empty">
+                <RefreshCw size={28} />
+                <h2>Preparing your conversation</h2>
+                <p>
+                  Refresh this connection if its secure conversation is still
+                  being created.
+                </p>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="cf-thread-empty">
+            <MessageCircle size={31} />
+            <h2>Choose a connection</h2>
+            <p>Only people who chose you back can start a thread.</p>
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
 
-function ProfileEditor({ profile, email, onSaved, onError, onNotice }: { profile: Profile; email: string; onSaved: (id: string) => Promise<void>; onError: (message: string) => void; onNotice: (message: string) => void }) {
-  const supabase = getSupabaseClient(); const [form, setForm] = useState({ full_name: profile.full_name, headline: profile.headline ?? "", city: profile.city ?? "", skills: profile.skills.join(", "), current_build: profile.current_build ?? "", looking_for: profile.looking_for ?? "", is_discoverable: profile.is_discoverable }); const [saving, setSaving] = useState(false);
-  const submit = async (event: FormEvent) => { event.preventDefault(); setSaving(true); const { error } = await supabase.from("cf_profiles").update({ full_name: form.full_name.trim(), headline: form.headline.trim() || null, city: form.city.trim() || null, skills: form.skills.split(",").map((value) => value.trim()).filter(Boolean).slice(0, 8), current_build: form.current_build.trim() || null, looking_for: form.looking_for.trim() || null, is_discoverable: form.is_discoverable }).eq("id", profile.id); setSaving(false); if (error) { onError(error.message); return; } await onSaved(profile.id); onNotice("Profile updated."); };
-  return <section className="cf-profile"><header><span className="cf-avatar xl">{initials(profile.full_name)}</span><div><p className="cf-kicker">Builder identity</p><h1>{profile.full_name}</h1><p>{email} · {profile.email_verified ? "email verified" : "verification pending"}</p></div></header><form onSubmit={submit} className="cf-profile-form"><div className="cf-form-grid"><Field label="Name"><input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} required /></Field><Field label="City"><input value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} maxLength={100} /></Field><Field label="Headline"><input value={form.headline} onChange={(e) => setForm({ ...form, headline: e.target.value })} maxLength={180} /></Field><Field label="Skills"><input value={form.skills} onChange={(e) => setForm({ ...form, skills: e.target.value })} /></Field><Field label="Currently building"><textarea value={form.current_build} onChange={(e) => setForm({ ...form, current_build: e.target.value })} maxLength={240} /></Field><Field label="Looking for"><textarea value={form.looking_for} onChange={(e) => setForm({ ...form, looking_for: e.target.value })} maxLength={240} /></Field></div><label className="cf-switch"><input type="checkbox" checked={form.is_discoverable} onChange={(e) => setForm({ ...form, is_discoverable: e.target.checked })} /><span /><b>Available for Meet</b><small>Turn this off to pause discovery. Existing connections remain available.</small></label><button className="cf-primary" disabled={saving}>{saving ? "Saving…" : "Save profile"}<Check size={17} /></button></form></section>;
+function BuildRooms({
+  userId,
+  onError,
+  onNotice,
+}: {
+  userId: string;
+  onError: (message: string) => void;
+  onNotice: (message: string) => void;
+}) {
+  const router = useRouter();
+  const supabase = getSupabaseClient();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selected, setSelected] = useState<Project | null>(null);
+  const [tasks, setTasks] = useState<ProjectTask[]>([]);
+  const [tierReady, setTierReady] = useState(false);
+  const [isPro, setIsPro] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [name, setName] = useState("");
+  const [idea, setIdea] = useState("");
+  const [taskTitle, setTaskTitle] = useState("");
+  const load = useCallback(async () => {
+    const { data: memberships, error: membershipError } = await supabase
+      .from("cf_project_members")
+      .select("project_id")
+      .eq("profile_id", userId);
+    if (membershipError) {
+      onError(membershipError.message);
+      return;
+    }
+    const projectIds = (memberships ?? []).map(
+      (membership) => membership.project_id,
+    );
+    if (!projectIds.length) {
+      setProjects([]);
+      setSelected(null);
+      return;
+    }
+    const { data, error } = await supabase
+      .from("cf_projects")
+      .select("*")
+      .in("id", projectIds)
+      .is("archived_at", null)
+      .order("updated_at", { ascending: false });
+    if (error) onError(error.message);
+    else setProjects((data as Project[]) ?? []);
+  }, [onError, supabase, userId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  useEffect(() => {
+    void supabase
+      .from("cf_entitlements")
+      .select("plan,status,expires_at")
+      .eq("profile_id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        setIsPro(
+          Boolean(
+            data &&
+            data.plan === "PRO" &&
+            data.status === "ACTIVE" &&
+            (!data.expires_at || new Date(data.expires_at) > new Date()),
+          ),
+        );
+        setTierReady(true);
+      });
+  }, [supabase, userId]);
+  useEffect(() => {
+    if (!selected) return;
+    void supabase
+      .from("cf_project_tasks")
+      .select("*")
+      .eq("project_id", selected.id)
+      .order("created_at")
+      .then(({ data, error }) => {
+        if (error) onError(error.message);
+        else setTasks((data as ProjectTask[]) ?? []);
+      });
+  }, [onError, selected, supabase]);
+  const create = async (event: FormEvent) => {
+    event.preventDefault();
+    const { data, error } = await supabase.rpc("cf_create_build_room", {
+      requested_name: name.trim(),
+      requested_idea: idea.trim(),
+      requested_stage: "IDEA",
+      requested_is_public: false,
+      requested_collaboration_enabled: false,
+    });
+    if (error) {
+      onError(
+        error.message.includes("FREE_BUILD_ROOM_LIMIT_REACHED")
+          ? "Your Free plan includes one active Build Room. Archive it or upgrade to Pro to start another."
+          : error.message,
+      );
+      return;
+    }
+    setName("");
+    setIdea("");
+    setCreating(false);
+    await load();
+    setSelected(data as Project);
+    onNotice("Build Room created. Add one useful next step.");
+  };
+  const addTask = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!selected || !taskTitle.trim()) return;
+    const { error } = await supabase
+      .from("cf_project_tasks")
+      .insert({ project_id: selected.id, title: taskTitle.trim() });
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    setTaskTitle("");
+    const { data } = await supabase
+      .from("cf_project_tasks")
+      .select("*")
+      .eq("project_id", selected.id)
+      .order("created_at");
+    setTasks((data as ProjectTask[]) ?? []);
+  };
+  const toggleTask = async (task: ProjectTask) => {
+    if (!selected || selected.owner_id !== userId) {
+      onError("Only the room owner can change tasks from this overview.");
+      return;
+    }
+    const status = task.status === "DONE" ? "TODO" : "DONE";
+    const { error } = await supabase
+      .from("cf_project_tasks")
+      .update({ status })
+      .eq("id", task.id);
+    if (error) onError(error.message);
+    else
+      setTasks((current) =>
+        current.map((item) =>
+          item.id === task.id ? { ...item, status } : item,
+        ),
+      );
+  };
+  const ownsAnActiveRoom = projects.some(
+    (project) => project.owner_id === userId,
+  );
+  const canCreateRoom = isPro || !ownsAnActiveRoom;
+  return (
+    <section className="cf-builds">
+      <header>
+        <div>
+          <p className="cf-kicker">A room for real work</p>
+          <h1>Build rooms</h1>
+          <p>
+            Your Free plan includes one active room. Connected Pro members can
+            request to join it, then make progress visible together.
+          </p>
+        </div>
+        <button
+          className={canCreateRoom ? "cf-primary" : "cf-secondary"}
+          onClick={() =>
+            canCreateRoom
+              ? router.push("/buildroom/new")
+              : onNotice(
+                  "Your Free plan includes one active Build Room. Upgrade to Pro to start another.",
+                )
+          }
+          disabled={!tierReady}
+        >
+          <Plus size={17} />
+          {!tierReady
+            ? "Checking plan…"
+            : canCreateRoom
+              ? "New room"
+              : "Pro for another room"}
+        </button>
+      </header>
+      {creating && (
+        <form className="cf-inline-form" onSubmit={create}>
+          <Field label="Room name">
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              maxLength={160}
+              placeholder="What are you building?"
+            />
+          </Field>
+          <Field label="The idea">
+            <input
+              value={idea}
+              onChange={(e) => setIdea(e.target.value)}
+              required
+              maxLength={280}
+              placeholder="A concise problem or promise"
+            />
+          </Field>
+          <button className="cf-primary">Create</button>
+          <button
+            type="button"
+            className="cf-quiet"
+            onClick={() => setCreating(false)}
+          >
+            Cancel
+          </button>
+        </form>
+      )}
+      <div className="cf-build-layout">
+        <div className="cf-project-list">
+          {projects.length ? (
+            projects.map((project) => (
+              <button
+                key={project.id}
+                className={selected?.id === project.id ? "active" : ""}
+                onClick={() => setSelected(project)}
+              >
+                <span>{project.stage}</span>
+                <strong>{project.name}</strong>
+                <small>{project.idea}</small>
+                {project.owner_id !== userId && <em>Shared with you</em>}
+              </button>
+            ))
+          ) : (
+            <Empty
+              icon={<Wrench size={25} />}
+              title="Nothing in progress yet"
+              body="Start a room for a real idea, then add the next concrete task."
+            />
+          )}
+        </div>
+        <div className="cf-project-detail">
+          {selected ? (
+            <>
+              <p className="cf-kicker">{selected.stage}</p>
+              <h2>{selected.name}</h2>
+              <p>{selected.idea}</p>
+              <button
+                className="cf-secondary"
+                onClick={() => router.push(`/buildroom/${selected.slug}`)}
+              >
+                Open full workspace <ArrowRight size={16} />
+              </button>
+              <div className="cf-task-list">
+                {tasks.length ? (
+                  tasks.map((task) => (
+                    <button
+                      onClick={() => void toggleTask(task)}
+                      key={task.id}
+                      disabled={selected.owner_id !== userId}
+                    >
+                      <i className={task.status === "DONE" ? "done" : ""}>
+                        {task.status === "DONE" && <Check size={12} />}
+                      </i>
+                      <span>{task.title}</span>
+                    </button>
+                  ))
+                ) : (
+                  <p className="cf-empty-copy">
+                    No tasks yet. A small, clear first task beats a long
+                    wishlist.
+                  </p>
+                )}
+              </div>
+              {selected.owner_id === userId ? (
+                <form className="cf-add-task" onSubmit={addTask}>
+                  <input
+                    value={taskTitle}
+                    onChange={(e) => setTaskTitle(e.target.value)}
+                    placeholder="Add the next step"
+                    maxLength={240}
+                  />
+                  <button aria-label="Add task">
+                    <Plus size={18} />
+                  </button>
+                </form>
+              ) : (
+                <p className="cf-empty-copy">
+                  This is a shared room. Open the full workspace to collaborate
+                  within the access your owner assigned.
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="cf-thread-empty">
+              <Wrench size={31} />
+              <h2>Open a room</h2>
+              <p>Select a room to see its actual tasks.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function Empty({ icon, title, body }: { icon: React.ReactNode; title: string; body: string }) { return <div className="cf-empty">{icon}<h2>{title}</h2><p>{body}</p></div>; }
+function ProfileEditor({
+  profile,
+  email,
+  onSaved,
+  onError,
+  onNotice,
+}: {
+  profile: Profile;
+  email: string;
+  onSaved: (id: string) => Promise<void>;
+  onError: (message: string) => void;
+  onNotice: (message: string) => void;
+}) {
+  const supabase = getSupabaseClient();
+  const [form, setForm] = useState({
+    full_name: profile.full_name,
+    headline: profile.headline ?? "",
+    city: profile.city ?? "",
+    skills: profile.skills.join(", "),
+    current_build: profile.current_build ?? "",
+    looking_for: profile.looking_for ?? "",
+    is_discoverable: profile.is_discoverable,
+    meet_available: profile.meet_available ?? false,
+    showcase_intents: profile.showcase_intents ?? [],
+  });
+  const [saving, setSaving] = useState(false);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    setSaving(true);
+    const { error } = await supabase
+      .from("cf_profiles")
+      .update({
+        full_name: form.full_name.trim(),
+        headline: form.headline.trim() || null,
+        city: form.city.trim() || null,
+        skills: form.skills
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .slice(0, 8),
+        current_build: form.current_build.trim() || null,
+        looking_for: form.looking_for.trim() || null,
+        is_discoverable: form.is_discoverable,
+        meet_available: form.meet_available,
+        showcase_intents: form.showcase_intents,
+      })
+      .eq("id", profile.id);
+    setSaving(false);
+    if (error) {
+      onError(error.message);
+      return;
+    }
+    await onSaved(profile.id);
+    onNotice("Profile updated.");
+  };
+  return (
+    <section className="cf-profile">
+      <header>
+        <span className="cf-avatar xl">{initials(profile.full_name)}</span>
+        <div>
+          <p className="cf-kicker">Builder identity</p>
+          <h1>{profile.full_name}</h1>
+          <p>
+            {email} ·{" "}
+            {profile.email_verified ? "email verified" : "verification pending"}
+          </p>
+        </div>
+      </header>
+      <form onSubmit={submit} className="cf-profile-form">
+        <div className="cf-form-grid">
+          <Field label="Name">
+            <input
+              value={form.full_name}
+              onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+              required
+            />
+          </Field>
+          <Field label="City">
+            <input
+              value={form.city}
+              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              maxLength={100}
+            />
+          </Field>
+          <Field label="Headline">
+            <input
+              value={form.headline}
+              onChange={(e) => setForm({ ...form, headline: e.target.value })}
+              maxLength={180}
+            />
+          </Field>
+          <Field label="Skills">
+            <input
+              value={form.skills}
+              onChange={(e) => setForm({ ...form, skills: e.target.value })}
+            />
+          </Field>
+          <Field label="Currently building">
+            <textarea
+              value={form.current_build}
+              onChange={(e) =>
+                setForm({ ...form, current_build: e.target.value })
+              }
+              maxLength={240}
+            />
+          </Field>
+          <Field label="Looking for">
+            <textarea
+              value={form.looking_for}
+              onChange={(e) =>
+                setForm({ ...form, looking_for: e.target.value })
+              }
+              maxLength={240}
+            />
+          </Field>
+        </div>
+        <section className="cf-profile-intents">
+          <div>
+            <h2>Open to</h2>
+            <p>
+              Optional signals help relevant people find a useful reason to
+              invite you without turning discovery into a feed.
+            </p>
+          </div>
+          <div className="choice-grid">
+            {showcaseIntentOptions.map((intent) => {
+              const selected = form.showcase_intents.includes(intent);
+              return (
+                <button
+                  type="button"
+                  className={selected ? "selected" : ""}
+                  key={intent}
+                  onClick={() =>
+                    setForm({
+                      ...form,
+                      showcase_intents: selected
+                        ? form.showcase_intents.filter(
+                            (item) => item !== intent,
+                          )
+                        : [...form.showcase_intents, intent].slice(0, 6),
+                    })
+                  }
+                >
+                  {selected && <Check size={14} />}
+                  {intent}
+                </button>
+              );
+            })}
+          </div>
+        </section>
+        <label className="cf-switch">
+          <input
+            type="checkbox"
+            checked={form.is_discoverable}
+            onChange={(e) =>
+              setForm({ ...form, is_discoverable: e.target.checked })
+            }
+          />
+          <span />
+          <b>Available for Meet</b>
+          <small>
+            Turn this off to pause discovery. Existing connections remain
+            available.
+          </small>
+        </label>
+        <label className="cf-switch">
+          <input
+            type="checkbox"
+            checked={form.meet_available}
+            onChange={(e) =>
+              setForm({ ...form, meet_available: e.target.checked })
+            }
+          />
+          <span />
+          <b>Available now</b>
+          <small>
+            People can send a private Meet invitation. This never starts a chat,
+            call, or camera without your Join decision.
+          </small>
+        </label>
+        <button className="cf-primary" disabled={saving}>
+          {saving ? "Saving…" : "Save profile"}
+          <Check size={17} />
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function Empty({
+  icon,
+  title,
+  body,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="cf-empty">
+      {icon}
+      <h2>{title}</h2>
+      <p>{body}</p>
+    </div>
+  );
+}
 
 function MarketingLanding() {
   const router = useRouter();
@@ -199,35 +2696,340 @@ function MarketingLanding() {
   useEffect(() => {
     if (!configured) return;
     const parameters = new URLSearchParams(window.location.search);
-    if (parameters.has("code") || parameters.has("error") || window.location.hash.includes("access_token")) {
-      router.replace(`/auth/callback${window.location.search}${window.location.hash}`);
+    if (
+      parameters.has("code") ||
+      parameters.has("error") ||
+      window.location.hash.includes("access_token")
+    ) {
+      router.replace(
+        `/auth/callback${window.location.search}${window.location.hash}`,
+      );
     }
   }, [router]);
   useEffect(() => {
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     const landing = document.querySelector<HTMLElement>(".landing-v2");
-    const sections = Array.from(document.querySelectorAll<HTMLElement>(".landing-v2 [data-reveal]"));
-    if (reduceMotion || !("IntersectionObserver" in window)) { sections.forEach((section) => section.dataset.visible = "true"); return; }
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>(".landing-v2 [data-reveal]"),
+    );
+    if (reduceMotion || !("IntersectionObserver" in window)) {
+      sections.forEach((section) => (section.dataset.visible = "true"));
+      return;
+    }
     landing?.classList.add("js-motion");
-    const observer = new IntersectionObserver((entries) => entries.forEach((entry) => { if (entry.isIntersecting) { (entry.target as HTMLElement).dataset.visible = "true"; observer.unobserve(entry.target); } }), { threshold: 0.16 });
+    const observer = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            (entry.target as HTMLElement).dataset.visible = "true";
+            observer.unobserve(entry.target);
+          }
+        }),
+      { threshold: 0.16 },
+    );
     sections.forEach((section) => observer.observe(section));
-    return () => { observer.disconnect(); landing?.classList.remove("js-motion"); };
+    return () => {
+      observer.disconnect();
+      landing?.classList.remove("js-motion");
+    };
   }, []);
-  return <main className="landing-v2" id="top">
-    <header className="v2-nav"><button className="v2-logo" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })} aria-label="CONFLUX home"><span className="v2-mark"><i /><i /><i /></span>CONFLUX<span>.</span></button><nav aria-label="Landing navigation"><a href="#how-it-works">How it works</a><a href="#product">The product</a><a href="#trust">Trust</a><button onClick={() => router.push("/login")}>Sign in</button></nav><button className="v2-nav-cta" onClick={start}>Start meeting <ArrowRight size={16} /></button></header>
-    <section className="v2-hero" data-reveal><div className="v2-hero-copy"><p className="v2-label">CONFLUX.SITE <span /></p><h1>Meet the people behind what gets built.</h1><p>CONFLUX turns the signal behind a builder—what they know, what they&apos;re making, and what they need—into a better first conversation.</p><div className="v2-actions"><button className="v2-primary" onClick={start}>Start a meeting <ArrowRight size={18} /></button><a className="v2-secondary" href="#how-it-works">See the flow <ArrowRight size={16} /></a></div><div className="v2-proof"><span><ShieldCheck size={16} /> Verified identity</span><span><MessageCircle size={16} /> 90-second text-first Meet</span><span><Heart size={16} /> Mutual connections only</span></div></div><MarketingMoment onStart={start} /></section>
-    <section className="v2-strip" aria-label="The CONFLUX connection loop"><span>MEET</span><i /><span>CONTEXT</span><i /><span>CONNECT</span><i /><span>BUILD</span><i /><span>MEET</span><i /><span>CONTEXT</span></section>
-    <section className="v2-why" id="how-it-works" data-reveal><div><p className="v2-label">THE CONNECTION LOOP</p><h2>Not another feed.<br /><em>A useful beginning.</em></h2></div><p>There is no follower race and no endless directory. You get a focused introduction with enough context to decide whether a conversation is worth having.</p><div className="v2-steps"><article><span>01</span><h3>Set your signal</h3><p>Share the skills, interests, current build, and the people you want to meet.</p></article><article><span>02</span><h3>Meet with context</h3><p>A private, text-first 90-second Meet starts with a reason you might work well together.</p></article><article><span>03</span><h3>Keep mutual momentum</h3><p>When both people choose Connect, the conversation and Build Room are ready to continue.</p></article></div></section>
-    <section className="v2-product" id="product" data-reveal><div className="v2-product-copy"><p className="v2-label">THE PRODUCT, IN MOTION</p><h2>Less browsing.<br />More building.</h2><p>Every surface does one job: introduce the right context, make the next decision clear, and leave room for the relationship to grow.</p><button className="v2-inline" onClick={start}>Create your builder profile <ArrowRight size={17} /></button></div><div className="v2-product-board" aria-label="A preview of the CONFLUX product flow"><div className="v2-board-head"><span>YOUR BUILDER LOOP</span><span><i /> LIVE</span></div><div className="v2-board-track"><article><span className="v2-board-icon lilac"><Compass size={17} /></span><div><small>DISCOVERY</small><strong>Relevant, finite matches</strong><p>Intent and craft make the reason to meet clear.</p></div><em>01</em></article><article><span className="v2-board-icon mint"><MessageCircle size={17} /></span><div><small>LIVE MEET</small><strong>90 seconds, text first</strong><p>Control the pace. Connect only when it feels right.</p></div><em>02</em></article><article><span className="v2-board-icon peach"><Wrench size={17} /></span><div><small>BUILD ROOM</small><strong>A shared next step</strong><p>Turn a promising thread into lightweight work.</p></div><em>03</em></article></div><button onClick={start}>See your first introduction <ArrowRight size={16} /></button></div></section>
-    <section className="v2-trust" id="trust" data-reveal><div><p className="v2-label">TRUST, WITHOUT THE THEATRE</p><h2>Know what you&apos;re meeting.</h2><p>Verified email and the context people choose to share make every introduction more confident. External profile signals are shown only after a real provider connection completes.</p></div><div className="v2-trust-stack"><span><ShieldCheck size={18} /> Email confirmation</span><span><ShieldCheck size={18} /> Mutual contact unlock</span><span><ShieldCheck size={18} /> Safety controls in every Meet</span></div></section>
-    <section className="v2-final" data-reveal><p>Meet someone interesting.</p><h2>See what you can build together.</h2><button className="v2-primary dark" onClick={start}>Start meeting <ArrowRight size={18} /></button><small>Start with a verified builder profile.</small></section>
-    <footer className="v2-footer"><button className="v2-logo" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}><span className="v2-mark"><i /><i /><i /></span>CONFLUX<span>.</span></button><strong>Meet. Talk. Connect. Build.</strong><span>© CONFLUX.site</span></footer>
-  </main>;
+  return (
+    <main className="landing-v2" id="top">
+      <header className="v2-nav">
+        <button
+          className="v2-logo"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          aria-label="CONFLUX home"
+        >
+          <span className="v2-mark">
+            <i />
+            <i />
+            <i />
+          </span>
+          CONFLUX<span>.</span>
+        </button>
+        <nav aria-label="Landing navigation">
+          <a href="#how-it-works">How it works</a>
+          <a href="#product">The product</a>
+          <a href="#trust">Trust</a>
+          <button onClick={() => router.push("/login")}>Sign in</button>
+        </nav>
+        <button className="v2-nav-cta" onClick={start}>
+          Start meeting <ArrowRight size={16} />
+        </button>
+      </header>
+      <section className="v2-hero" data-reveal>
+        <div className="v2-hero-copy">
+          <p className="v2-label">
+            CONFLUX.SITE <span />
+          </p>
+          <h1>Meet the people behind what gets built.</h1>
+          <p>
+            CONFLUX turns the signal behind a builder—what they know, what
+            they&apos;re making, and what they need—into a better first
+            conversation.
+          </p>
+          <div className="v2-actions">
+            <button className="v2-primary" onClick={start}>
+              Start a meeting <ArrowRight size={18} />
+            </button>
+            <a className="v2-secondary" href="#how-it-works">
+              See the flow <ArrowRight size={16} />
+            </a>
+          </div>
+          <div className="v2-proof">
+            <span>
+              <ShieldCheck size={16} /> Verified identity
+            </span>
+            <span>
+              <MessageCircle size={16} /> 90-second text-first Meet
+            </span>
+            <span>
+              <Heart size={16} /> Mutual connections only
+            </span>
+          </div>
+        </div>
+        <MarketingMoment onStart={start} />
+      </section>
+      <section className="v2-strip" aria-label="The CONFLUX connection loop">
+        <span>MEET</span>
+        <i />
+        <span>CONTEXT</span>
+        <i />
+        <span>CONNECT</span>
+        <i />
+        <span>BUILD</span>
+        <i />
+        <span>MEET</span>
+        <i />
+        <span>CONTEXT</span>
+      </section>
+      <section className="v2-why" id="how-it-works" data-reveal>
+        <div>
+          <p className="v2-label">THE CONNECTION LOOP</p>
+          <h2>
+            Not another feed.
+            <br />
+            <em>A useful beginning.</em>
+          </h2>
+        </div>
+        <p>
+          There is no follower race and no endless directory. You get a focused
+          introduction with enough context to decide whether a conversation is
+          worth having.
+        </p>
+        <div className="v2-steps">
+          <article>
+            <span>01</span>
+            <h3>Set your signal</h3>
+            <p>
+              Share the skills, interests, current build, and the people you
+              want to meet.
+            </p>
+          </article>
+          <article>
+            <span>02</span>
+            <h3>Meet with context</h3>
+            <p>
+              A private, text-first 90-second Meet starts with a reason you
+              might work well together.
+            </p>
+          </article>
+          <article>
+            <span>03</span>
+            <h3>Keep mutual momentum</h3>
+            <p>
+              When both people choose Connect, the conversation and Build Room
+              are ready to continue.
+            </p>
+          </article>
+        </div>
+      </section>
+      <section className="v2-product" id="product" data-reveal>
+        <div className="v2-product-copy">
+          <p className="v2-label">THE PRODUCT, IN MOTION</p>
+          <h2>
+            Less browsing.
+            <br />
+            More building.
+          </h2>
+          <p>
+            Every surface does one job: introduce the right context, make the
+            next decision clear, and leave room for the relationship to grow.
+          </p>
+          <button className="v2-inline" onClick={start}>
+            Create your builder profile <ArrowRight size={17} />
+          </button>
+        </div>
+        <div
+          className="v2-product-board"
+          aria-label="A preview of the CONFLUX product flow"
+        >
+          <div className="v2-board-head">
+            <span>YOUR BUILDER LOOP</span>
+            <span>
+              <i /> LIVE
+            </span>
+          </div>
+          <div className="v2-board-track">
+            <article>
+              <span className="v2-board-icon lilac">
+                <Compass size={17} />
+              </span>
+              <div>
+                <small>DISCOVERY</small>
+                <strong>Relevant, finite matches</strong>
+                <p>Intent and craft make the reason to meet clear.</p>
+              </div>
+              <em>01</em>
+            </article>
+            <article>
+              <span className="v2-board-icon mint">
+                <MessageCircle size={17} />
+              </span>
+              <div>
+                <small>LIVE MEET</small>
+                <strong>90 seconds, text first</strong>
+                <p>Control the pace. Connect only when it feels right.</p>
+              </div>
+              <em>02</em>
+            </article>
+            <article>
+              <span className="v2-board-icon peach">
+                <Wrench size={17} />
+              </span>
+              <div>
+                <small>BUILD ROOM</small>
+                <strong>A shared next step</strong>
+                <p>Turn a promising thread into lightweight work.</p>
+              </div>
+              <em>03</em>
+            </article>
+          </div>
+          <button onClick={start}>
+            See your first introduction <ArrowRight size={16} />
+          </button>
+        </div>
+      </section>
+      <section className="v2-trust" id="trust" data-reveal>
+        <div>
+          <p className="v2-label">TRUST, WITHOUT THE THEATRE</p>
+          <h2>Know what you&apos;re meeting.</h2>
+          <p>
+            Verified email and the context people choose to share make every
+            introduction more confident. External profile signals are shown only
+            after a real provider connection completes.
+          </p>
+        </div>
+        <div className="v2-trust-stack">
+          <span>
+            <ShieldCheck size={18} /> Email confirmation
+          </span>
+          <span>
+            <ShieldCheck size={18} /> Mutual contact unlock
+          </span>
+          <span>
+            <ShieldCheck size={18} /> Safety controls in every Meet
+          </span>
+        </div>
+      </section>
+      <section className="v2-final" data-reveal>
+        <p>Meet someone interesting.</p>
+        <h2>See what you can build together.</h2>
+        <button className="v2-primary dark" onClick={start}>
+          Start meeting <ArrowRight size={18} />
+        </button>
+        <small>Start with a verified builder profile.</small>
+      </section>
+      <footer className="v2-footer">
+        <button
+          className="v2-logo"
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        >
+          <span className="v2-mark">
+            <i />
+            <i />
+            <i />
+          </span>
+          CONFLUX<span>.</span>
+        </button>
+        <strong>Meet. Talk. Connect. Build.</strong>
+        <span>© CONFLUX.site</span>
+      </footer>
+    </main>
+  );
 }
 
 function MarketingMoment({ onStart }: { onStart: () => void }) {
   const [step, setStep] = useState(0);
-  useEffect(() => { if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return; const cycle = window.setInterval(() => setStep((current) => (current + 1) % 3), 3200); return () => window.clearInterval(cycle); }, []);
-  const copy = [["Finding a relevant builder", "Matching intent, skills, and availability."], ["Your shared context is ready", "A reason to start, before you say hello."], ["You both chose Connect", "Your private thread is ready to continue."]][step];
-  return <div className={`match-moment step-${step}`} aria-live="polite"><div className="match-top"><span><i /> LIVE MEET</span><strong>{step === 0 ? "MATCHING" : step === 1 ? "READY" : "CONNECTED"}</strong></div><div className="match-people"><div className="match-person you"><span className="cf-avatar large">YU</span><strong>You</strong><small>Your intent</small></div><div className="match-link"><span><i /><i /><i /></span></div><div className="match-person maya"><span className="cf-avatar large">MB</span><strong>Builder</strong><small>Shared context</small></div></div><div className="match-copy"><span>{copy[0]}</span><strong>{copy[1]}</strong></div><div className="match-tags"><span>AI tools</span><span>Creator products</span><span>React</span></div><button onClick={onStart}>{step === 2 ? "Create your account" : "Meet a builder"} <ArrowRight size={17} /></button><div className="match-dots"><i className={step === 0 ? "active" : ""} /><i className={step === 1 ? "active" : ""} /><i className={step === 2 ? "active" : ""} /></div></div>;
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const cycle = window.setInterval(
+      () => setStep((current) => (current + 1) % 3),
+      3200,
+    );
+    return () => window.clearInterval(cycle);
+  }, []);
+  const copy = [
+    [
+      "Finding a relevant builder",
+      "Matching intent, skills, and availability.",
+    ],
+    [
+      "Your shared context is ready",
+      "A reason to start, before you say hello.",
+    ],
+    ["You both chose Connect", "Your private thread is ready to continue."],
+  ][step];
+  return (
+    <div className={`match-moment step-${step}`} aria-live="polite">
+      <div className="match-top">
+        <span>
+          <i /> LIVE MEET
+        </span>
+        <strong>
+          {step === 0 ? "MATCHING" : step === 1 ? "READY" : "CONNECTED"}
+        </strong>
+      </div>
+      <div className="match-people">
+        <div className="match-person you">
+          <span className="cf-avatar large">YU</span>
+          <strong>You</strong>
+          <small>Your intent</small>
+        </div>
+        <div className="match-link">
+          <span>
+            <i />
+            <i />
+            <i />
+          </span>
+        </div>
+        <div className="match-person maya">
+          <span className="cf-avatar large">MB</span>
+          <strong>Builder</strong>
+          <small>Shared context</small>
+        </div>
+      </div>
+      <div className="match-copy">
+        <span>{copy[0]}</span>
+        <strong>{copy[1]}</strong>
+      </div>
+      <div className="match-tags">
+        <span>AI tools</span>
+        <span>Creator products</span>
+        <span>React</span>
+      </div>
+      <button onClick={onStart}>
+        {step === 2 ? "Create your account" : "Meet a builder"}{" "}
+        <ArrowRight size={17} />
+      </button>
+      <div className="match-dots">
+        <i className={step === 0 ? "active" : ""} />
+        <i className={step === 1 ? "active" : ""} />
+        <i className={step === 2 ? "active" : ""} />
+      </div>
+    </div>
+  );
 }

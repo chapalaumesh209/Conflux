@@ -14,6 +14,9 @@ export type Profile = {
   can_offer: string | null;
   avatar_url: string | null;
   is_discoverable: boolean;
+  meet_available?: boolean;
+  meet_available_updated_at?: string | null;
+  showcase_intents?: string[];
   onboarding_complete: boolean;
   email_verified: boolean;
   github_verified: boolean;
@@ -22,8 +25,23 @@ export type Profile = {
   updated_at: string;
 };
 
-export type Candidate = Pick<Profile,
-  "id" | "username" | "full_name" | "headline" | "city" | "experience_band" | "skills" | "domains" | "goals" | "current_build" | "looking_for" | "avatar_url" | "email_verified" | "github_verified" | "linkedin_verified"
+export type Candidate = Pick<
+  Profile,
+  | "id"
+  | "username"
+  | "full_name"
+  | "headline"
+  | "city"
+  | "experience_band"
+  | "skills"
+  | "domains"
+  | "goals"
+  | "current_build"
+  | "looking_for"
+  | "avatar_url"
+  | "email_verified"
+  | "github_verified"
+  | "linkedin_verified"
 > & { match_reason: string | null };
 
 export type Connection = {
@@ -54,9 +72,13 @@ export type Project = {
   summary: string | null;
   problem: string | null;
   goals: string | null;
-  stage: "IDEA" | "PLANNING" | "BUILDING" | "BETA" | "LIVE" | "PAUSED" | "COMPLETED";
+  stage:
+    "IDEA" | "PLANNING" | "BUILDING" | "BETA" | "LIVE" | "PAUSED" | "COMPLETED";
   is_public: boolean;
   collaboration_enabled: boolean;
+  showcase_enabled?: boolean;
+  showcase_pitch?: string | null;
+  demo_url?: string | null;
   live_url: string | null;
   repository_url: string | null;
   created_at: string;
