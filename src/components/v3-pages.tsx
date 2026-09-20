@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Bell, Check, CircleAlert, Compass, ExternalLink, FileText, Flag, FolderKanban, Github, LockKeyhole, MessageCircle, Plus, RefreshCw, Search, Settings2, ShieldBan, Sparkles, UserRound, UsersRound, Wrench } from "lucide-react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabase/client";
@@ -10,6 +10,14 @@ type Session = { user: { id: string; email?: string } };
 type Milestone = { id: string; project_id: string; title: string; description: string | null; target_date: string | null; status: string; created_at: string };
 type ProjectMessage = { id: string; project_id: string; sender_id: string; body: string; created_at: string };
 type ProjectNote = { id: string; project_id: string; author_id: string; type: string; title: string; body: string; created_at: string };
+type DiscoverBuilder = Pick<Candidate, "id" | "username" | "full_name" | "headline" | "experience_band" | "skills" | "domains" | "goals" | "current_build" | "looking_for" | "avatar_url" | "email_verified" | "github_verified" | "linkedin_verified"> & { match_reasons: string[]; ranker_version: string };
+type DiscoverProject = {
+  id: string; slug: string; name: string; summary: string | null; idea: string; stage: Project["stage"]; goals: string | null;
+  collaboration_enabled: boolean; owner_id: string; owner_username: string; owner_full_name: string; match_reasons: string[]; ranker_version: string;
+};
+const DISCOVER_BUILDERS_PAGE_SIZE = 4;
+const DISCOVER_PROJECTS_PAGE_SIZE = 3;
+const isMissingDiscoverRanker = (message?: string) => Boolean(message?.includes("cf_discover_") && message.includes("schema cache"));
 const initials = (name: string) => name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 const date = (value?: string | null) => value ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(value)) : "No date";
 
@@ -48,10 +56,97 @@ function Person({ person, action }: { person: Pick<Candidate, "username" | "full
 
 export function DiscoverPage() { return <WorkspaceGate>{({ supabase }) => <DiscoverInner supabase={supabase} />}</WorkspaceGate>; }
 function DiscoverInner({ supabase }: { supabase: ReturnType<typeof getSupabaseClient> }) {
-  const router = useRouter(); const [people, setPeople] = useState<Candidate[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
-  const load = useCallback(async () => { setLoading(true); setError(""); const { data, error: requestError } = await supabase.rpc("cf_discover_profiles", { result_limit: 12 }); setLoading(false); if (requestError) setError(requestError.message); else setPeople((data as Candidate[]) ?? []); }, [supabase]);
+  const router = useRouter();
+  const [builders, setBuilders] = useState<DiscoverBuilder[]>([]);
+  const [projects, setProjects] = useState<DiscoverProject[]>([]);
+  const [builderOffset, setBuilderOffset] = useState(0);
+  const [projectOffset, setProjectOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [startingId, setStartingId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const load = useCallback(async (append = false, nextBuilderOffset = 0, nextProjectOffset = 0) => {
+    if (append) setLoadingMore(true); else setLoading(true);
+    setError("");
+    const [builderResult, projectResult] = await Promise.all([
+      supabase.rpc("cf_discover_builders_v3", { result_limit: DISCOVER_BUILDERS_PAGE_SIZE, result_offset: nextBuilderOffset }),
+      supabase.rpc("cf_discover_projects_v3", { result_limit: DISCOVER_PROJECTS_PAGE_SIZE, result_offset: nextProjectOffset }),
+    ]);
+    if (append) setLoadingMore(false); else setLoading(false);
+    if (builderResult.error || projectResult.error) {
+      if (isMissingDiscoverRanker(builderResult.error?.message) && isMissingDiscoverRanker(projectResult.error?.message)) {
+        const { data: legacyData, error: legacyError } = await supabase.rpc("cf_discover_profiles", { result_limit: 24 });
+        if (legacyError) { setError(legacyError.message); return; }
+        const eligibleBuilders = ((legacyData as Candidate[] | null) ?? []).map((builder) => ({ ...builder, match_reasons: [builder.match_reason || "Their public builder context is ready for a focused introduction"], ranker_version: "legacy-safe" })) as DiscoverBuilder[];
+        const ownerIds = eligibleBuilders.map((builder) => builder.id);
+        const projectResult = ownerIds.length ? await supabase.from("cf_projects").select("id,slug,name,summary,idea,stage,goals,collaboration_enabled,owner_id").eq("is_public", true).is("archived_at", null).in("owner_id", ownerIds).order("updated_at", { ascending: false }) : { data: [], error: null };
+        if (projectResult.error) { setError(projectResult.error.message); return; }
+        const owners = new Map(eligibleBuilders.map((builder) => [builder.id, builder]));
+        const eligibleProjects = ((projectResult.data as Array<Pick<Project, "id" | "slug" | "name" | "summary" | "idea" | "stage" | "goals" | "collaboration_enabled" | "owner_id">> | null) ?? []).flatMap((project) => {
+          const owner = owners.get(project.owner_id);
+          return owner ? [{ ...project, owner_username: owner.username, owner_full_name: owner.full_name, match_reasons: [owner.match_reasons[0] || "The project owner is eligible for an introduction"], ranker_version: "legacy-safe" } satisfies DiscoverProject] : [];
+        });
+        const nextBuilders = eligibleBuilders.slice(nextBuilderOffset, nextBuilderOffset + DISCOVER_BUILDERS_PAGE_SIZE);
+        const nextProjects = eligibleProjects.slice(nextProjectOffset, nextProjectOffset + DISCOVER_PROJECTS_PAGE_SIZE);
+        setBuilders((current) => append ? [...current, ...nextBuilders] : nextBuilders);
+        setProjects((current) => append ? [...current, ...nextProjects] : nextProjects);
+        setBuilderOffset(nextBuilderOffset + nextBuilders.length);
+        setProjectOffset(nextProjectOffset + nextProjects.length);
+        setHasMore(nextBuilderOffset + nextBuilders.length < eligibleBuilders.length || nextProjectOffset + nextProjects.length < eligibleProjects.length);
+        return;
+      }
+      setError(builderResult.error?.message || projectResult.error?.message || "Discovery could not be refreshed.");
+      return;
+    }
+    const nextBuilders = (builderResult.data as DiscoverBuilder[] | null) ?? [];
+    const nextProjects = (projectResult.data as DiscoverProject[] | null) ?? [];
+    setBuilders((current) => append ? [...current, ...nextBuilders] : nextBuilders);
+    setProjects((current) => append ? [...current, ...nextProjects] : nextProjects);
+    setBuilderOffset(nextBuilderOffset + nextBuilders.length);
+    setProjectOffset(nextProjectOffset + nextProjects.length);
+    setHasMore(nextBuilders.length === DISCOVER_BUILDERS_PAGE_SIZE || nextProjects.length === DISCOVER_PROJECTS_PAGE_SIZE);
+  }, [supabase]);
+
   useEffect(() => { void load(); }, [load]);
-  return <Page title="Discovery" description="Relevant people, presented with a reason to meet." actions={<button className="cf-secondary" onClick={() => void load()}><RefreshCw size={16} />Refresh</button>}><Notice error={error} />{loading ? <State icon={<RefreshCw size={26} />} title="Reading your signal" body="Looking for people whose context makes a first conversation useful." /> : people.length ? <div className="v3-people">{people.map((person) => <Person key={person.id} person={person} action={<button className="cf-primary" onClick={() => router.push(`/u/${person.username}`)}>View profile <ArrowRight size={15} /></button>} />)}</div> : <State icon={<Compass size={28} />} title="No introductions right now" body="You have already met the available candidates, or no member currently matches your discovery settings." action={<button className="cf-primary" onClick={() => router.push("/meet")}>Go to Meet</button>} />}</Page>;
+
+  const startMeet = async (candidateId: string) => {
+    if (startingId) return;
+    setStartingId(candidateId); setError("");
+    const { error: requestError } = await supabase.rpc("cf_open_meet", { candidate_id: candidateId });
+    setStartingId(null);
+    if (requestError) { setError(requestError.message === "CANDIDATE_UNAVAILABLE" ? "This introduction has changed. Refresh to see the current set." : requestError.message); return; }
+    router.push("/meet");
+  };
+
+  const hasResults = builders.length > 0 || projects.length > 0;
+  return <Page title="Discovery" description="A finite set of relevant builders and public work—with the reason for every introduction." actions={<button className="cf-secondary" onClick={() => void load()} disabled={loading || loadingMore}><RefreshCw size={16} />Refresh</button>}>
+    <Notice error={error} />
+    {loading ? <State icon={<RefreshCw size={26} />} title="Reading your signal" body="Ranking only people and public projects that are eligible for a real introduction." /> : hasResults ? <section className="v3-discovery" aria-label="Ranked discovery results">
+      {builders.length > 0 && <div className="v3-discovery-lane">
+        <div className="v3-discovery-lane-heading"><div><h2>Builders for a better first conversation</h2><p>Context first. A mutual connection can only happen after you both choose Connect in Meet.</p></div><span>{builders.length} shown</span></div>
+        <div className="v3-discovery-builders">{builders.map((builder, index) => <article className="v3-discovery-builder" style={{ "--discover-order": index } as CSSProperties} key={builder.id}>
+          <header><span className="cf-avatar large">{initials(builder.full_name)}</span><div><h3>{builder.full_name}{builder.email_verified && <Check size={15} aria-label="Email verified" />}</h3><p>@{builder.username} · {builder.headline || "Builder"}{builder.experience_band ? ` · ${builder.experience_band}` : ""}</p></div><span className="v3-discovery-rank">Relevant now</span></header>
+          <div className="v3-tags">{builder.skills.slice(0, 5).map((skill) => <span key={skill}>{skill}</span>)}</div>
+          <div className="v3-discovery-context">{builder.current_build && <p><b>Building</b>{builder.current_build}</p>}{builder.looking_for && <p><b>Looking for</b>{builder.looking_for}</p>}</div>
+          <div className="v3-discovery-why"><b>Why this person</b>{builder.match_reasons.slice(0, 3).map((reason) => <p key={reason}>{reason}</p>)}</div>
+          <footer><button className="cf-secondary" onClick={() => router.push(`/u/${builder.username}`)}>View profile <ArrowRight size={15} /></button><button className="cf-primary" onClick={() => void startMeet(builder.id)} disabled={Boolean(startingId)}>{startingId === builder.id ? "Starting…" : "Meet"}<ArrowRight size={15} /></button></footer>
+        </article>)}</div>
+      </div>}
+      {projects.length > 0 && <div className="v3-discovery-lane v3-discovery-project-lane">
+        <div className="v3-discovery-lane-heading"><div><h2>Public projects with shared context</h2><p>Project details stay public; the room itself remains governed by its access rules.</p></div><span>{projects.length} shown</span></div>
+        <div className="v3-discovery-projects">{projects.map((project, index) => <article className="v3-discovery-project" style={{ "--discover-order": index } as CSSProperties} key={project.id}>
+          <header><span>{project.stage}</span><small>{project.collaboration_enabled ? "Collaboration open" : "Public overview"}</small></header>
+          <h3>{project.name}</h3><p className="v3-discovery-project-summary">{project.summary || project.idea}</p>
+          {project.goals && <p className="v3-discovery-project-goal"><b>Project focus</b>{project.goals}</p>}
+          <div className="v3-discovery-why"><b>Why relevant</b>{project.match_reasons.slice(0, 3).map((reason) => <p key={reason}>{reason}</p>)}</div>
+          <footer><button className="cf-secondary" onClick={() => router.push(`/buildroom/${project.slug}`)}>View project <ArrowRight size={15} /></button><button className="cf-primary" onClick={() => void startMeet(project.owner_id)} disabled={Boolean(startingId)}>{startingId === project.owner_id ? "Starting…" : "Meet owner"}<ArrowRight size={15} /></button></footer>
+        </article>)}</div>
+      </div>}
+      {hasMore && <div className="v3-discovery-more"><button className="cf-secondary" onClick={() => void load(true, builderOffset, projectOffset)} disabled={loadingMore}>{loadingMore ? "Loading…" : "Load more"}<ArrowRight size={15} /></button><small>Discovery stays finite. You are seeing the next eligible ranked set.</small></div>}
+    </section> : <State icon={<Compass size={28} />} title="No introductions right now" body="You have already met the available candidates, or no eligible builder or public project currently matches your discovery settings." action={<button className="cf-primary" onClick={() => router.push("/meet")}>Go to Meet</button>} />}
+  </Page>;
 }
 
 export function SearchPage() { return <WorkspaceGate>{({ supabase, user }) => <SearchInner supabase={supabase} userId={user.id} />}</WorkspaceGate>; }
